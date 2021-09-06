@@ -1,9 +1,11 @@
 ---
-title: "Mini-Project 4: Analyzing Your Scraped Data"
-subtitle: "MTH 365: Intro to Data Science"
+title: 'Mini-Project 4: Analyzing Your Scraped Data'
 author: "Andrew Walther"
 date: "Due April 12, 2019"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
+subtitle: 'MTH 365: Intro to Data Science'
 ---
 
 ```{r}

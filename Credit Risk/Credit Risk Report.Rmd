@@ -1,0 +1,169 @@
+---
+title: "Mini-Project 3: Building and Evaluating Models"
+subtitle: "MTH 365: Intro to Data Science"
+author: "Your Name Here"
+date: "Due March 21, 2019"
+output: html_document
+---
+
+Financial companies use data science to create predictive models on their customers. One question that credit card companies might be interested in studying is the factors that affect a customer's credit card balance. Specifically, which customers are more likely to have a higher balance?
+
+The data set `Credit` in the `ISLR` package contains 400 anonymized values on credit card customers at a company.
+
+```{r, warning=FALSE, message=FALSE}
+#install.packages('ISLR')
+library(ISLR)
+library(tidyverse)
+library(mdsr)
+
+data(Credit)
+glimpse(Credit)
+```
+
+Variable|Description
+---|---
+`ID`|Customer ID number
+`Income`|Customer income in \$10,000s
+`Limit`|Customer credit limit
+`Rating`|Customer credit rating
+`Age`|Age in years
+`Education`|Number of years of education
+`Gender`|A factor with levels `Male` and `Female`
+`Student`|A factor with levels `Yes` and `No` indicating whether the customer is a full-time student
+`Married`|A factor with levels `Yes` and `No` indicating whether the customer is married
+`Ethnicity`|A factor with levels `African American`, `Asian`, `Caucasian` (since the data has been anonymized the ethnicity groups have been very broadly defined)
+`Balance`|Average credit card balance in \$
+
+Your goal for this project is to build and evaluate a series of regression models to predict the credit card balance for each customer.
+
+-------
+
+You should consider four possible models. Each model should be supported or suggested by exploratory data analysis in some way. For each model, 
+
+1. Fit the model. Which variables in the model are "statistically significant"?
+2. Evaluate how well the model fits using cross-validation and prediction error, as well as fit statistics. More information is provided at the end of this assignment.
+
+Once you've finished, explain which model you've tried is "best" and why. 
+
+Feel free to calculate other variables to use on this project. For example, credit "utilization" -- or how much of a customer's available balance is being "used" -- is another common metric used by financial companies.
+
+You may complete this Mini-Project individually or as a team. An example of how you might fit and evaluate a multiple regression model is provided at the end of this assignment (this should not be one of the potential models you evaluate!). For more information, check out "Appendix E: Regression Modeling" in _Modern Data Science with R_.
+
+------------
+
+# Evaluating models
+
+How do you know if the model you've created is a "good one"? There are many techniques data scientists can use to evaluate their models.
+
+## 1. Cross-validation
+
+We'll get our first real taste of cross-validation when we start fitting decision trees, random forests, and other classification algorithms, but here's the basic idea:
+
+__We know that our data is an imperfect representation of the population.__ 
+
+Hopefully it's close! But it won't be perfect. However, if we fit a model that fits our data _too_ well, we risk __overfitting__. This means that the model we have is a great fit for our data, but isn't generalizable to the entire population. We can avoid overfitting by (1) favoring simple models over complex models, and (2) using cross-validation. 
+
+When we use cross-validation, we split our data set into two parts: a "training" set and a "testing" set. We use the training data set to build our model, and the testing data set to evaluate our model. Once that's done, the training and testing data sets flip roles. If the first model is overfit, then it probably won't perform as well when we flip the data sets.
+
+Common cross-validation schemes are 80/20 (80% training, 20% testing) and 50/50 (50% training, 50% testing). Another option is __k-fold cross-validation__, in which the data set is divided into k equal portions, and each portion is the testing data set once.
+
+## 2. Prediction error
+
+When we have a numerical response variable, say $y$, we can use __fit statistics__ to consider how well our model fits the data. Let $y_i$ be the $i^{th}$ observed value and $\hat{y}_i$ be the corresponding predicted value.
+
+1. Root mean square error ($RMSE$): this measure penalizes large errors much more than smaller errors.
+
+$$RMSE(y_i, \hat{y}_i) = \sqrt{\frac{1}{n}\sum_{i=1}^{n}(y_i -\hat{y}_i)^2}$$
+
+2. Mean absolute error ($MAE$): similar to $RMSE$, but treats all errors equally.
+
+$$MAE(y_{i},\hat{y}_{i})=\frac{1}{n}\sum_{i=1}^{n}\left|y_{i}-\hat{y}_{i}\right|$$
+
+## 3. "Fit" statistics
+
+Fit statistics are used to directly quantify the quality of a model "fit".
+
+1. Adjusted $R^2$: the coefficient of determination, $R^2$, measures how much "variability" in the response variable $Y$ can be explained using the model. When there are multiple explanatory variables in the model, the $R^2$ can be _biased_. To account for the number of predictors, we use __adjusted $R^2$__ instead.
+
+$$R_{adj}^{2}=1-\frac{\frac{1}{n-p-1}\sum_{i=1}^{n}(y_{i}-\hat{y}_{i})^{2}}{\frac{1}{n-1}\sum_{i=1}^{n}(y_{i}-\bar{y})^{2}}$$
+
+2. Akaike's Information Criterion ($AIC$) and Bayesian Information Criterion ($BIC$): these measures are based on something called the "log-likelhood" ($LL$) of an observed data set. Models with small values of $AIC$/$BIC$ are desirable. $AIC$ and $BIC$ are both "relative measures", they should only be compared for multiple models fit to the same data set.
+
+$$AIC=-2 LL + 2p$$
+
+$$BIC = -2 LL + log(n)p$$
+
+# Sample Model: Balance ~ Age + Credit Rating
+
+Does a customer's age and credit rating affect their credit card balance? Let's find out. First, I'll use some plots to see if there is a meaningful relationship. Based on the plots, there does not seem to be much of a relationship between a customer's age and credit card balance. There is a clear linkage however between credit rating and credit card balance! Additionally, there may be some relationship between age and credit card rating. I'll expect `Rating` to be a significant variable in this model.
+
+```{r}
+Credit %>% ggplot(aes(x=Age, y=Balance)) + geom_point(alpha=0.7) + geom_smooth(method='lm')
+Credit %>% ggplot(aes(x=Rating, y=Balance)) + geom_point(alpha=0.7) + geom_smooth(method='lm')
+Credit %>% ggplot(aes(x=Age, y=Rating)) + geom_point(alpha=0.7) + geom_smooth(method='lm')
+```
+
+We use `lm()`, which stands for "linear model" to fit a regression model in R. The "fitted" linear model on the complete data set is:
+
+$$\hat{y}_i = -269.58110 - 2.35078\times Age + 2.59328 \times Rating$$
+
+Younger customers tend to have a higher credit card balance than older customers. Customers with a low credit rating tend to have a lower balance than customers with a high credit rating.
+
+```{r}
+example_model <- lm(Balance ~ Age + Rating, data=Credit)
+summary(example_model)
+
+# The plotModel predicted values look strange! That's because we're trying to plot predictions from a multiple regression model on a single explanatory variable plot.
+plotModel(example_model)
+```
+
+Using this output, the __adjusted R-squared__ is 0.7523, about 75% of the variability in credit card balance can be explained using a customer's age and credit rating. This is pretty good!
+
+```{r}
+AIC(example_model)
+BIC(example_model)
+```
+
+The $AIC$ and $BIC$ for this model are both in the 5000s. Right now, these numbers are kind of meaningless. $AIC$ and $BIC$ don't have an absolute scale, and should only be compared to other models fit to the same data.
+
+To cross-validate the model fit/predictions, we need to create a testing data set and a training data set. I'll use a 50/50 balance.
+
+```{r}
+# The test_ID gives a random set of rows to assign to the testing group
+test_ID <- sample(1:nrow(Credit), size=round(0.5*nrow(Credit)))
+# All of the rows in test_ID are removed from the Credit data set to create the TRAINING data
+TRAINING <- Credit[-test_ID, ]
+# All of the rows in test_ID are retained in the Credit data set to create the TESTING data
+TESTING <- Credit[test_ID, ]
+```
+
+Next, we fit the model to the training data. If our model is a good "fit", the estimated coefficients shouldn't change very much.
+
+```{r}
+example_model_training <- lm(Balance ~ Age + Rating, data=TRAINING)
+summary(example_model_training)
+```
+
+The model coefficients and adjusted R-squared aren't exactly the same, but they're similar. The code below calculates the $RMSE$ and $MAE$ for this model. Again, comparison should be against other models.
+
+```{r}
+# The predict function only wants the variables used in the model, no others should be supplied
+NEWDATA <- TESTING %>% select(Age, Balance, Rating)
+predicted <- predict(newdata=NEWDATA, example_model_training)
+
+# predicted and actual both need to be a vector
+predicted <- as.vector(predicted)
+actual <- TESTING$Balance
+
+# install.packages('Metrics')
+library(Metrics)
+
+# Mean Square Error
+mse(actual, predicted)
+
+# Root MSE
+sqrt(mse(actual, predicted))
+
+# Mean Absolute Error
+mdae(actual, predicted)
+```

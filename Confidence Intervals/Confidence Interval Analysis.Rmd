@@ -1,0 +1,618 @@
+---
+title: "MTH 562 Project 2"
+author: "Mark May and Andrew Walther"
+date: "3/21/2019"
+output: html_document
+---
+
+```{r}
+#install.packages("binom")
+library(mosaic)
+library(RColorBrewer)
+library(binom)
+cols <- brewer.pal(8, 'Set1')
+```
+
+## Introduction
+
+We will analyze the Wald, Wilson, and Agresti-Coull confidence intervals based off of their interval lengths and coverage levels. This will be done with random samples from a binomial distribution with a selection of six different sets of parameters.
+
+# Wald Confidence Interval
+
+## $p = 0.5, n = 20$
+```{r}
+set.seed(562)
+p11 <- 0.5
+n11 <- 20
+
+wald_lower1 <- c()
+wald_upper1 <- c()
+
+for(i in 1:10000){
+X_11 <- rbinom(prob=p11, size=n11, n=1)
+intervals11 <- binom.confint(x=X_11, n=n11, conf.level=0.95, method='asymptotic')
+
+wald_lower1[i] <- intervals11[1, 5]
+wald_upper1[i] <- intervals11[1, 6]
+}
+
+coverage_wald1 <- sum(wald_lower1 <= p11 & wald_upper1 >=p11)/10000
+
+length_wald1 <- wald_upper1 - wald_lower1
+
+boxplot(length_wald1, col=cols[1], xlab='Length of 95% Wald Intervals (n=20, p=0.5)')
+
+coverage_wald1
+coverage_wald_diff95_1 <- coverage_wald1 - 0.95
+coverage_wald_diff95_1
+mean(length_wald1)
+```
+
+- The Wald confidence interval with $p = 0.5, n = 20$ has a length of $0.4268$ and coverage level of $0.9616$. This exceeds the desired $95%$ confidence level by $0.0116$.
+
+## $p = 0.5, n = 50$
+```{r}
+set.seed(562)
+p12 <- 0.5
+n12 <- 50
+
+wald_lower2 <- c()
+wald_upper2 <- c()
+
+for(i in 1:10000){
+X_12 <- rbinom(prob=p12, size=n12, n=1)
+intervals12 <- binom.confint(x=X_12, n=n12, conf.level=0.95, method='asymptotic')
+
+wald_lower2[i] <- intervals12[1, 5]
+wald_upper2[i] <- intervals12[1, 6]
+}
+
+coverage_wald2 <- sum(wald_lower2 <= p12 & wald_upper2 >=p12)/10000
+
+length_wald2 <- wald_upper2 - wald_lower2
+boxplot(length_wald2, col=cols[1], xlab='Length of 95% Wald Intervals (n=50, p=0.5)')
+
+coverage_wald2
+coverage_wald_diff95_2 <- coverage_wald2 - 0.95
+coverage_wald_diff95_2
+mean(length_wald2)
+```
+
+- The Wald confidence interval with $p = 0.5, n = 50$ has a length of $0.2743$ and coverage level of $0.9359$. This falls short of the desired $95%$ confidence level by $0.0141$.
+
+## $p = 0.7, n = 20$
+```{r}
+set.seed(562)
+p13 <- 0.7
+n13 <- 20
+
+wald_lower3 <- c()
+wald_upper3 <- c()
+
+for(i in 1:10000){
+X_13 <- rbinom(prob=p13, size=n13, n=1)
+intervals13 <- binom.confint(x=X_13, n=n13, conf.level=0.95, method='asymptotic')
+
+wald_lower3[i] <- intervals13[1, 5]
+wald_upper3[i] <- intervals13[1, 6]
+}
+
+coverage_wald3 <- sum(wald_lower3 <= p13 & wald_upper3 >=p13)/10000
+
+length_wald3 <- wald_upper3 - wald_lower3
+boxplot(length_wald3, col=cols[1], xlab='Length of 95% Wald Intervals (n=20, p=0.7)')
+
+coverage_wald3
+coverage_wald_diff95_3<- coverage_wald3 - 0.95
+coverage_wald_diff95_3
+mean(length_wald3)
+```
+
+- The Wald confidence interval with $p = 0.7, n = 20$ has a length of $0.3888$ and coverage level of $0.9488$. This falls short the desired $95%$ confidence level by $0.0012$.
+
+## $p = 0.7, n = 50$
+```{r}
+set.seed(562)
+p14 <- 0.7
+n14 <- 50
+
+wald_lower4 <- c()
+wald_upper4 <- c()
+
+for(i in 1:10000){
+X_14 <- rbinom(prob=p14, size=n14, n=1)
+intervals14 <- binom.confint(x=X_14, n=n14, conf.level=0.95, method='asymptotic')
+
+wald_lower4[i] <- intervals14[1, 5]
+wald_upper4[i] <- intervals14[1, 6]
+}
+
+coverage_wald4 <- sum(wald_lower4 <= p14 & wald_upper4 >=p14)/10000
+
+length_wald4 <- wald_upper4 - wald_lower4
+boxplot(length_wald4, col=cols[1], xlab='Length of 95% Wald Intervals (n=50, p=0.7)')
+
+coverage_wald4
+coverage_wald_diff95_4 <- coverage_wald4 - 0.95
+coverage_wald_diff95_4
+mean(length_wald4)
+```
+
+- The Wald confidence interval with $p = 0.7, n = 50$ has a length of $0.2509$ and coverage level of $0.9364$. This falls short the desired $95%$ confidence level by $0.0136$.
+
+## $p = 0.9, n = 20$
+```{r}
+set.seed(562)
+p15 <- 0.9
+n15 <- 20
+
+wald_lower5 <- c()
+wald_upper5 <- c()
+
+for(i in 1:10000){
+X_15 <- rbinom(prob=p15, size=n15, n=1)
+intervals15 <- binom.confint(x=X_15, n=n15, conf.level=0.95, method='asymptotic')
+
+wald_lower5[i] <- intervals15[1, 5]
+wald_upper5[i] <- intervals15[1, 6]
+}
+
+coverage_wald5 <- sum(wald_lower5 <= p15 & wald_upper5 >=p15)/10000
+
+length_wald5 <- wald_upper5 - wald_lower5
+boxplot(length_wald5, col=cols[1], xlab='Length of 95% Wald Intervals (n=20, p=0.9)')
+
+coverage_wald5
+coverage_wald_diff95_5 <- coverage_wald5 - 0.95
+coverage_wald_diff95_5
+mean(length_wald5)
+```
+
+- The Wald confidence interval with $p = 0.9, n = 20$ has a length of $0.2337$ and coverage level of $0.8744$. This falls short the desired $95%$ confidence level by $0.0756$.
+
+## $p = 0.9, n = 50$
+```{r}
+set.seed(562)
+p16 <- 0.9
+n16 <- 50
+
+wald_lower6 <- c()
+wald_upper6 <- c()
+
+for(i in 1:10000){
+X_16 <- rbinom(prob=p16, size=n16, n=1)
+intervals16 <- binom.confint(x=X_16, n=n16, conf.level=0.95, method='asymptotic')
+
+wald_lower6[i] <- intervals16[1, 5]
+wald_upper6[i] <- intervals16[1, 6]
+}
+
+coverage_wald6 <- sum(wald_lower6 <= p16 & wald_upper6 >=p16)/10000
+
+length_wald6 <- wald_upper6 - wald_lower6
+boxplot(length_wald6, col=cols[1], xlab='Length of 95% Wald Intervals (n=50, p=0.9)')
+
+coverage_wald6
+coverage_wald_diff95_6 <- coverage_wald6 - 0.95
+coverage_wald_diff95_6
+mean(length_wald6)
+```
+
+- The Wald confidence interval with $p = 0.9, n = 50$ has a length of $0.1611$ and coverage level of $0.8771$. This falls short the desired $95%$ confidence level by $0.0729$.
+
+# Wilson Confidence Interval
+
+## $p = 0.5, n = 20$
+```{r}
+set.seed(562)
+p21 <- 0.5
+n21 <- 20
+
+wilson_lower1 <- c()
+wilson_upper1 <- c()
+
+for(i in 1:10000){
+X_21 <- rbinom(prob=p21, size=n21, n=1)
+intervals21 <- binom.confint(x=X_21, n=n21, conf.level=0.95, method='wilson')
+
+wilson_lower1[i] <- intervals21[1, 5]
+wilson_upper1[i] <- intervals21[1, 6]
+}
+
+coverage_wilson1 <- sum(wilson_lower1 <= p21 & wald_upper1 >=p21)/10000
+
+length_wilson1 <- wilson_upper1 - wilson_lower1
+boxplot(length_wilson1, col=cols[2], xlab='Length of 95% Wilson Intervals (n=20, p=0.5)')
+
+coverage_wilson1
+coverage_wilson_diff95_1 <- coverage_wilson1 - 0.95
+coverage_wilson_diff95_1
+mean(length_wilson1)
+```
+
+- The Wilson confidence interval with $p = 0.5, n = 20$ has a length of $0.3926$ and coverage level of $0.9616$. This exceeds the desired $95%$ confidence level by $0.0116$.
+
+## $p = 0.5, n = 50$
+```{r}
+set.seed(562)
+p22 <- 0.5
+n22 <- 50
+
+wilson_lower2 <- c()
+wilson_upper2 <- c()
+
+for(i in 1:10000){
+X_22 <- rbinom(prob=p22, size=n22, n=1)
+intervals22 <- binom.confint(x=X_22, n=n22, conf.level=0.95, method='wilson')
+
+wilson_lower2[i] <- intervals22[1, 5]
+wilson_upper2[i] <- intervals22[1, 6]
+}
+
+coverage_wilson2 <- sum(wilson_lower2 <= p22 & wilson_upper2 >=p22)/10000
+
+length_wilson2 <- wilson_upper2 - wilson_lower2
+boxplot(length_wilson2, col=cols[2], xlab='Length of 95% Wilson Intervals (n=50, p=0.5)')
+
+coverage_wilson2
+coverage_wilson_diff95_2 <- coverage_wilson2 - 0.95
+coverage_wilson_diff95_2
+mean(length_wilson2)
+```
+
+- The Wilson confidence interval with $p = 0.5, n = 50$ has a length of $0.2646$ and coverage level of $0.9359$. This falls short of the desired $95%$ confidence level by $0.0141$.
+
+## $p = 0.7, n = 20$
+```{r}
+set.seed(562)
+p23 <- 0.7
+n23 <- 20
+
+wilson_lower3 <- c()
+wilson_upper3 <- c()
+
+for(i in 1:10000){
+X_23 <- rbinom(prob=p23, size=n23, n=1)
+intervals23 <- binom.confint(x=X_23, n=n23, conf.level=0.95, method='wilson')
+
+wilson_lower3[i] <- intervals23[1, 5]
+wilson_upper3[i] <- intervals23[1, 6]
+}
+
+coverage_wilson3 <- sum(wilson_lower3 <= p23 & wilson_upper3 >=p23)/10000
+
+length_wilson3 <- wilson_upper3 - wilson_lower3
+boxplot(length_wilson3, col=cols[2], xlab='Length of 95% Wilson Intervals (n=20, p=0.7)')
+
+coverage_wilson3
+coverage_wilson_diff95_3 <- coverage_wilson3 - 0.95
+coverage_wilson_diff95_3
+mean(length_wilson3)
+```
+
+- The Wilson confidence interval with $p = 0.7, n = 20$ has a length of $0.3643$ and coverage level of $0.9769$. This exceeds the desired $95%$ confidence level by $0.0269$.
+
+## $p = 0.7, n = 50$
+```{r}
+set.seed(562)
+p24 <- 0.7
+n24 <- 50
+
+wilson_lower4 <- c()
+wilson_upper4 <- c()
+
+for(i in 1:10000){
+X_24 <- rbinom(prob=p24, size=n24, n=1)
+intervals24 <- binom.confint(x=X_24, n=n24, conf.level=0.95, method='wilson')
+
+wilson_lower4[i] <- intervals24[1, 5]
+wilson_upper4[i] <- intervals24[1, 6]
+}
+
+coverage_wilson4 <- sum(wilson_lower4 <= p24 & wilson_upper4 >=p24)/10000
+
+length_wilson4 <- wilson_upper4 - wilson_lower4
+boxplot(length_wilson4, col=cols[2], xlab='Length of 95% Wilson Intervals (n=50, p=0.7)')
+
+coverage_wilson4
+coverage_wilson_diff95_4 <- coverage_wilson4 - 0.95
+coverage_wilson_diff95_4
+mean(length_wilson4)
+```
+
+- The Wilson confidence interval with $p = 0.7, n = 50$ has a length of $0.2438$ and coverage level of $0.9587$. This exceeds the desired $95%$ confidence level by $0.0087$.
+
+## $p = 0.9, n = 20$
+```{r}
+set.seed(562)
+p25 <- 0.9
+n25 <- 20
+
+wilson_lower5 <- c()
+wilson_upper5 <- c()
+
+for(i in 1:10000){
+X_25 <- rbinom(prob=p25, size=n25, n=1)
+intervals25 <- binom.confint(x=X_25, n=n25, conf.level=0.95, method='wilson')
+
+wilson_lower5[i] <- intervals25[1, 5]
+wilson_upper5[i] <- intervals25[1, 6]
+}
+
+coverage_wilson5 <- sum(wilson_lower5 <= p25 & wilson_upper5 >=p25)/10000
+
+length_wilson5 <- wilson_upper5 - wilson_lower5
+boxplot(length_wilson5, col=cols[2], xlab='Length of 95% Wilson Intervals (n=20, p=0.9)')
+
+coverage_wilson5
+coverage_wilson_diff95_5 <- coverage_wilson5 - 0.95
+coverage_wilson_diff95_5
+mean(length_wilson5)
+```
+
+- The Wilson confidence interval with $p = 0.9, n = 20$ has a length of $0.0053$ and coverage level of $0.9553$. This exceeds the desired $95%$ confidence level by $0.2629$.
+
+## $p = 0.9, n = 50$
+```{r}
+set.seed(562)
+p26 <- 0.9
+n26 <- 50
+
+wilson_lower6 <- c()
+wilson_upper6 <- c()
+
+for(i in 1:10000){
+X_26 <- rbinom(prob=p26, size=n26, n=1)
+intervals26 <- binom.confint(x=X_26, n=n26, conf.level=0.95, method='wilson')
+
+wilson_lower6[i] <- intervals26[1, 5]
+wilson_upper6[i] <- intervals26[1, 6]
+}
+
+coverage_wilson6 <- sum(wilson_lower6 <= p26 & wilson_upper6 >=p26)/10000
+
+length_wilson6 <- wilson_upper6 - wilson_lower6
+boxplot(length_wilson6, col=cols[2], xlab='Length of 95% Wilson Intervals (n=50, p=0.9)')
+
+coverage_wilson6
+coverage_wilson_diff95_6 <- coverage_wilson6 - 0.95
+coverage_wilson_diff95_6
+mean(length_wilson6)
+```
+
+- The Wilson confidence interval with $p = 0.9, n = 50$ has a length of $0.0213$ and coverage level of $0.9713$. This exceeds the desired $95%$ confidence level by $0.1665$.
+
+# Agresti-Coull Confidence Interval
+
+## $p = 0.5, n = 20$
+```{r}
+set.seed(562)
+p31 <- 0.5
+n31 <- 20
+
+agresti_lower1 <- c()
+agresti_upper1 <- c()
+
+for(i in 1:10000){
+X_31 <- rbinom(prob=p31, size=n31, n=1)
+intervals31 <- binom.confint(x=X_31, n=n31, conf.level=0.95, method='agresti-coull')
+
+agresti_lower1[i] <- intervals31[1, 5]
+agresti_upper1[i] <- intervals31[1, 6]
+}
+
+coverage_agresti1 <- sum(agresti_lower1 <= p31 & agresti_upper1 >=p31)/10000
+
+length_agresti1 <- agresti_upper1 - agresti_lower1
+boxplot(length_agresti1, col=cols[3], xlab='Length of 95% Agresti-Coull Intervals (n=20, p=0.5)')
+
+coverage_agresti1
+coverage_agresti_diff95_1 <- coverage_agresti1 - 0.95
+coverage_agresti_diff95_1
+mean(length_agresti1)
+```
+
+- The Agresti-Coull confidence interval with $p = 0.5, n = 20$ has a length of $0.3941$ and coverage level of $0.9616$. This exceeds the desired $95%$ confidence level by $0.0116$.
+
+## $p = 0.5, n = 50$
+```{r}
+set.seed(562)
+p32 <- 0.5
+n32 <- 50
+
+agresti_lower2 <- c()
+agresti_upper2 <- c()
+
+for(i in 1:10000){
+X_32 <- rbinom(prob=p32, size=n32, n=1)
+intervals32 <- binom.confint(x=X_32, n=n32, conf.level=0.95, method='agresti-coull')
+
+agresti_lower2[i] <- intervals32[1, 5]
+agresti_upper2[i] <- intervals32[1, 6]
+}
+
+coverage_agresti2 <- sum(agresti_lower2 <= p32 & agresti_upper2 >=p32)/10000
+
+length_agresti2 <- agresti_upper2 - agresti_lower2
+boxplot(length_agresti2, col=cols[3], xlab='Length of 95% Agresti-Coull Intervals (n=50, p=0.5)')
+
+coverage_agresti2
+coverage_agresti_diff95_2 <- coverage_agresti2 - 0.95
+coverage_agresti_diff95_2
+mean(length_agresti2)
+```
+
+- The Agresti-Coull confidence interval with $p = 0.5, n = 50$ has a length of $0.2648$ and coverage level of $0.9359$. This falls short of the desired $95%$ confidence level by $0.0141$.
+
+## $p = 0.7, n = 20$
+```{r}
+set.seed(562)
+p33 <- 0.7
+n33 <- 20
+
+agresti_lower3 <- c()
+agresti_upper3 <- c()
+
+for(i in 1:10000){
+X_33 <- rbinom(prob=p33, size=n33, n=1)
+intervals33 <- binom.confint(x=X_33, n=n33, conf.level=0.95, method='agresti-coull')
+
+agresti_lower3[i] <- intervals33[1, 5]
+agresti_upper3[i] <- intervals33[1, 6]
+}
+
+coverage_agresti3 <- sum(agresti_lower3 <= p33 & agresti_upper3 >=p33)/10000
+
+length_agresti3 <- agresti_upper3 - agresti_lower3
+boxplot(length_agresti3, col=cols[3], xlab='Length of 95% Agresti-Coull Intervals (n=20, p=0.7)')
+
+coverage_agresti3
+coverage_agresti_diff95_3 <- coverage_agresti3 - 0.95
+coverage_agresti_diff95_3
+mean(length_agresti3)
+```
+
+- The Agresti-Coull confidence interval with $p = 0.7, n = 20$ has a length of $0.3708$ and coverage level of $0.9769$. This exceeds the desired $95%$ confidence level by $0.0269$.
+
+## $p = 0.7, n = 50$
+```{r}
+set.seed(562)
+p34 <- 0.7
+n34 <- 50
+
+agresti_lower4 <- c()
+agresti_upper4 <- c()
+
+for(i in 1:10000){
+X_34 <- rbinom(prob=p34, size=n34, n=1)
+intervals34 <- binom.confint(x=X_34, n=n34, conf.level=0.95, method='agresti-coull')
+
+agresti_lower4[i] <- intervals34[1, 5]
+agresti_upper4[i] <- intervals34[1, 6]
+}
+
+coverage_agresti4 <- sum(agresti_lower4 <= p34 & agresti_upper4 >=p34)/10000
+
+length_agresti4 <- agresti_upper4 - agresti_lower4
+boxplot(length_agresti4, col=cols[3], xlab='Length of 95% Agresti-Coull Intervals (n=50, p=0.7)')
+
+coverage_agresti4
+coverage_agresti_diff95_4 <- coverage_agresti4 - 0.95
+coverage_agresti_diff95_4
+mean(length_agresti4)
+```
+
+- The Agresti-Coull confidence interval with $p = 0.7, n = 50$ has a length of $0.2455$ and coverage level of $0.9587$. This exceeds the desired $95%$ confidence level by $0.0087$.
+
+## $p = 0.9, n = 20$
+```{r}
+set.seed(562)
+p35 <- 0.9
+n35 <- 20
+
+agresti_lower5 <- c()
+agresti_upper5 <- c()
+
+for(i in 1:10000){
+X_35 <- rbinom(prob=p35, size=n35, n=1)
+intervals35 <- binom.confint(x=X_35, n=n35, conf.level=0.95, method='agresti-coull')
+
+agresti_lower5[i] <- intervals35[1, 5]
+agresti_upper5[i] <- intervals35[1, 6]
+}
+
+coverage_agresti5 <- sum(agresti_lower5 <= p35 & agresti_upper5 >=p35)/10000
+
+length_agresti5 <- agresti_upper5 - agresti_lower5
+boxplot(length_agresti5, col=cols[3], xlab='Length of 95% Agresti-Coull Intervals (n=20, p=0.9)')
+
+coverage_agresti5
+coverage_agresti_diff95_5 <- coverage_agresti5 - 0.95
+coverage_agresti_diff95_5
+mean(length_agresti5)
+```
+
+- The Agresti-Coull confidence interval with $p = 0.9, n = 20$ has a length of $0.2912$ and coverage level of $0.9553$. This exceeds the desired $95%$ confidence level by $0.0053$.
+
+## $p = 0.9, n = 50$
+```{r}
+set.seed(562)
+p36 <- 0.9
+n36 <- 50
+
+agresti_lower6 <- c()
+agresti_upper6 <- c()
+
+for(i in 1:10000){
+X_36 <- rbinom(prob=p36, size=n36, n=1)
+intervals36 <- binom.confint(x=X_36, n=n36, conf.level=0.95, method='agresti-coull')
+
+agresti_lower6[i] <- intervals36[1, 5]
+agresti_upper6[i] <- intervals36[1, 6]
+}
+
+coverage_agresti6 <- sum(agresti_lower6 <= p36 & agresti_upper6 >=p36)/10000
+
+length_agresti6 <- agresti_upper6 - agresti_lower6
+boxplot(length_agresti6, col=cols[3], xlab='Length of 95% Agresti-Coull Intervals (n=50, p=0.9)')
+
+coverage_agresti6
+coverage_agresti_diff95_6 <- coverage_agresti6 - 0.95
+coverage_agresti_diff95_6
+mean(length_agresti6)
+```
+
+- The Agresti-Coull confidence interval with $p = 0.9, n = 50$ has a length of $0.0213$ and coverage level of $0.9713$. This exceeds the desired $95%$ confidence level by $0.1760$.
+
+## Collected Data
+Method|$p$|$n$|Coverage|Error|Length
+---|---|---|---|---|---
+Wald|0.5|20|0.9616|0.0116|0.4268
+Wald|0.5|50|0.9359|-0.0141|0.2743
+Wald|0.7|20|0.9488|-0.0012|0.3888
+Wald|0.7|50|0.9364|-0.0136|0.2509
+Wald|0.9|20|0.8744|-0.0756|0.2337
+Wald|0.9|50|0.8771|-0.0729|0.1611
+Wilson|0.5|20|0.9616|0.0116|0.3926
+Wilson|0.5|50|0.9359|-0.0141|0.2646
+Wilson|0.7|20|0.9769|0.0269|0.3643
+Wilson|0.7|50|0.9587|0.0087|0.2438
+Wilson|0.9|20|0.9553|0.0053|0.2629
+Wilson|0.9|50|0.9713|0.0213|0.1665
+Agresti-Coull|0.5|20|0.9616|0.0116|0.3941
+Agresti-Coull|0.5|50|0.9359|-0.0141|0.2648
+Agresti-Coull|0.7|20|0.9769|0.0269|0.3706
+Agresti-Coull|0.7|50|0.9587|0.0087|0.2455
+Agresti-Coull|0.9|20|0.9553|0.0053|0.2912
+Agresti-Coull|0.9|50|0.9713|0.0213|0.1760
+
+## Conclusions
+
+### $p = 0.5, n = 20$
+For this set of parameters, all three confidence intervals exceeded the desired coverage level of $95%$ by $0.0116$. The Wilson interval has the shortest length at $0.3926$ and the Wald interval has the largest length at $0.4268$. These results indicate that the Wilson confidence interval is the best performer for this particular set of parameters.
+
+### $p = 0.5, n = 50$
+For this set of parameters, all three confidence intervals fell short of the desired coverage level of $95%$ by $0.0141$. The Wilson interval has the shortest length at $0.2646$ and the Wald interval has the largest length at $0.2743$. These results indicate that the Wilson confidence interval is the best performer for this set of parameters.
+
+### $p = 0.7, n = 20$
+For this set of parameters, the Wald confidence interval fell short of the desired confidence level by $0.0012$. This is the closest interval to the desired confidence level. The Wilson confidence interval has the shortest length at $0.3643$ and the Wald has the largest length at $0.3888$. Since the Wald interval's coverage is the closest to the desired confidence level, it can be considered the best performer for these parameters.
+
+### $p = 0.7, n = 50$
+For this set of parameters, the Wilson and Agresti-Coull intervals have coverage levels closest to the desired confidence level. They both fall short by $0.0087$. The Wilson interval has the shortest length at $0.2438$ and the Wald interval's length is the largest at $0.2509$. These results indicate that the Wilson interval is the best performer for these parameters.
+
+### $p = 0.9, n = 20$
+For this set of parameters, the Wilson and Agresti-Coull intervals have coverage levels closest to the desired confidence level. They both exceed $95%$ by $0.0053$. The Wald interval has the shortest length at $0.2337$, the length of the Wilson interval is next at $0.2629$, followed by the Agresti-Coull interval at $0.2912$. With a strong balance of accurate coverage and short length, the Wilson interval is the best performing interval for these parameters.
+
+### $p = 0.9, n = 50$
+For this set of parameters, the Wilson and Agresti-Coull intervals have coverages levels that both exceed the desired confidence level of $95%$ by $0.0213$. The Wald interval has the shortest length at $0.1611$, followed by the Wilson at $0.1665$, and the Agresti-Coull at $0.1760$. Again, with a balance of accurate coverage and a short interval length, the Wilson interval is the best performer for these parameters.
+
+### Overall
+A brief analysis of the three confidence intervals for six sets of parameters led us to conclude that the Wilson interval is the best performer for five of the six sets of parameters and the Wald interval is the best performer for the final set of parameters. 
+
+- The Wald interval had its best result for coverage when $p = 0.7$ and $n = 20$. The shortest length for the Wald occured when $p = 0.9$ and $n = 50$. In general, the Wald interval has coverage values closest to the desired level when $p$ is small and the shortest interval lengths occur when $n$ is large and $p$ is large. Generally, the Wald's performance on coverage was abysmal with $p=0.9$. This is easily understood in the context of the normality assumption that underlies the Wald confidence interval. As $p \rightarrow 0$ or 1, the estimation of $p$ cannot approach normality because $p$ truncates at 0 or 1, preventing the sampling distribution from reaching the needed symmetry. 
+
+- For the Wilson interval, the best coverage result occured with $p = 0.9$ and $n = 20$. The shortest length for the Wilson occured with $p = 0.9$ and $n = 50$. In general, the Wilson interval had better coverage levels when $p$ is large. Similar to the Wald, the shortest interval lengths for the Wilson occur when $n$ is large and $p$ is large. The Wilson's coverage results did not suffer with a high $p$ as much as the Wald and Agresti-Coull did. This is because the Wilson confidence interval does not require assuming that $p = \hat{p}$, so it is more robust when the normality assumption breaks down.
+
+- The best coverage result for the Agresti-Coull interval occured with $p = 0.9$ and $n = 20$. The shortest interval length occured with $p = 0.9$ and $n = 50$. The Agresti-Coull interval had better coverage levels near $p = 0.9$. The shortest interval lengths for the Agresti-Coull occur when $n$ is large and $p$ is large. The Agresti-Coull performed better than the Wald as $p \rightarrow 1$, which is good because that's what it's supposed to do. The act of using $\tilde{p} = \frac{X+2}{n+4}$ as the estimator for $p$ nudges it away from $0$ and $1$, dampening the disastrous effect those extreme values can have on the Wald confidence interval.
+
+In summation, the simulation results indicate that the Wilson confidence interval has the best overall performance combined between coverage levels near the desired value and short interval lengths. This would lead us to conclude that the Wilson interval is "better" than the Wald and Agresti-Coull intervals.

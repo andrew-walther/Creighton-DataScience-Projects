@@ -1,0 +1,330 @@
+---
+title: "MTH 365 Final Project"
+subtitle: "An Analysis of Major League Baseball Statistics to Project Wins Above Replacement (WAR) and Team Wins"
+author: "Mark May, Shelby Smith, and Andrew Walther"
+date: "5/3/2019"
+output: html_document
+---
+```{r, echo=TRUE, results='hide', warning=FALSE, message=FALSE}
+library(mosaic)
+library(tidyverse)
+library(ggplot2)
+PlayerStats <- read.csv("~/Documents/Creighton Docs/Spring 2019/MTH 365/final project/PlayerStats.csv")
+winfactors <- read.csv("~/Documents/Creighton Docs/Spring 2019/MTH 365/final project/winfactors.csv")
+```
+
+## Introduction
+
+In our preliminary project proposal, we outlined a plan to investigate the connections between traditional baseball performance statistics and the Wins Above Replacement (WAR) statistics. We also discussed an interest in examining the structure of Major League Baseball teams and identifying how the distribution of performance among players translates to overall team performance in terms of wins. In this analysis, we will move forward with exploring the connections between traditional statistics and the WAR value of a player. We will attempt to determine which statistic or collection of statistics are the most powerful at predicting the Wins Above Replacement value of a Major League Baseball player in a given season. As a result of our analysis, we aim to build a predictive model that can accurately determine a baseball player's WAR value in the present or future based off of other simpler statistics. This analysis will also be restricted to MLB hitters with no consideration for pitchers in this first study. 
+
+We will also continue with our analysis of the optimal team-building strategy in Major League baseball. The question of interest for this portion of our analysis is if it is most beneficial to direct the limited financial resources of a team toward acquiring a few high-level stars and filling out the rest of the 25-man roster with average to below-average replacment-level players that perform at a lower level from the stars, but also require far less compensation. The alternative to this is building a team loaded with above-average everyday contributers that is lined with depth up and down the roster. It is important to note that in general, the players with the highest WAR values in the league often end up signing the most lucrative contracts that take up a large portion of their team's payroll. For example, this past season, Mike Trout of the Los Angeles Angels had a WAR value of 10.2, which was second among all position players in 2018. This led to Trout signing a contract extension worth a record-breaking $430 million. This analysis will give insight into what sort of team structure based off of salary and player WAR is most conducive to producing a high level of wins.
+
+The data that is used in the analysis of hitter Wins Above Replacement is taken from "batting leaders" page on `fangraphs.com`. Fangraphs is a website that hosts a large collections of baseball data dating back to the 1800's. The site can be found at the following link: https://www.fangraphs.com/leaders.aspx?pos=all&stats=bat&lg=all&qual=y&type=8&season=2019&month=0&season1=2019&ind=0. We used fangraphs hitting data from the "dashboard" and "standard" tabs in order to include all of the statistics of interest for our analysis. From this data, we created a dataset named 'PlayerStats'. In order to use a reasonable amount of data out of the immense collection that fangraphs has, we restricted the extracted hitter data set to take statistics from hitter seasons between 1996 and 2018 with at least 250 plate appearances. The final data set that was extracted from fangraphs includes the following variables:
+
+Variable | Description
+--- | ---
+Season | Year of season played
+Name | Player name
+Team | Player team name
+G | Games played
+PA | Plate Appearences
+HR | Home Runs
+R | Runs
+RBI | Runs Batted In
+SB | Stolen Bases
+BB | Base on Balls
+K | Strikeouts
+ISO | Isolated Power
+BABIP | Batting Average on Balls In Play
+AVG | Batting Average
+OBP | On Base Percentage
+SLG | Slugging Percentage
+wOBA | Weighted On Base Average
+wRC | Weighted Runs Created
+WAR | Wins Above Replacement
+Dollars | Player Salary
+
+
+The data used in the team-building analysis was acquired from `baseballreference.com` under the "Team Stats" section of the "Seasons" page. Baseball reference can be found at the following link: https://www.baseball-reference.com/leagues/MLB/index.shtml. We used this data from baseballreference to created a dataset called `winfactors` that contained the statistics of interest for analyzing MLB team performance based on the structure of the team's performance. As noted previously, we restricted the data collection to MLB seasons between 1996 and 2018. The data that was extracted from baseballreference includes the following variables:
+
+Variable | Description
+--- | ---
+Team | Team name
+Wins | Team wins
+WinPct | Team winning percentage
+Season | Year of season played
+WAR.mean | Team mean Wins Above Replacement among all players
+wOBA.mean | Team mean Weighted On Base Average among all players
+wRC.mean | Team mean Weighted Runs Created among all players
+WAR.spread | Variablity of Wins Above Replacement among all players
+wOBA.spread | Standard deviation of Weighted On Base Average among all players
+wRC.spread | Standard deviation of Weighted Runs Created among all players
+
+## Methods
+
+### Preliminary Analysis
+
+Before performing a through analysis of the data to develop a predictive model, it is important to revisit some of our initial thoughts with regards to relationships in the data for MLB hitter WAR and team performance (measured by wins). Lets recall some of our exploratory data analysis that set us on the path to solidifying our results.
+
+```{r, echo=FALSE}
+PlayerStats <- PlayerStats %>% mutate(OPS = OBP + SLG)
+ggplot(PlayerStats, aes(x=OPS, y=WAR)) + geom_point(shape=1, alpha=0.5) + 
+  labs(title="OPS vs WAR", subtitle = "For All MLB Hitter Seasons from 1996-2018 with at least 200 PA")
+```
+
+In analyzing the success of individual players with Wins Above Replacement (WAR) as the response variable, we initally thought a statistic like OPS might be a strong indicator of a player's WAR. OPS is the sum of a hitters On Base Percentage and Slugging Percentage. A player with a high OPS gets on base a lot, hits a lot of extra base hits, and is generally an extremely productive offensive player. We expect that OPS will be an extremely important predictor of WAR. We have plotted OPS against WAR below. The scatter plot shown above shows that there is a fairly clear linear relationship between OPS and WAR, with high values of OPS corresponding to higher WAR values for hitters. Moving forward, OPS will likely be a key statistic when seeking to project a players WAR.
+
+```{r, echo=FALSE}
+war.wins <- winfactors %>% group_by(Wins) %>%
+  summarize(MeanWARSpread = mean(WAR.Spread))
+ggplot(war.wins, aes(x=Wins, y=MeanWARSpread)) + geom_point() + geom_smooth(method="lm") + 
+  labs(x="Season Wins", y="Average WAR Spread", title="Average WAR Spread for Teams with a Given Number of Wins")
+```
+
+In looking at how team success (wins) is attributed based off of the distribution of high, average, and low performing players, we thought it might be interesting to look at how the "spread" of WAR among a team influences the number of wins a team has. In the plot above, it can be seen that there is a positive relationship between the average "spread" of WAR among players on a team and the number of wins the team has in a season. This might indicate that teams with high variability among the WAR values of their players, meaning a significant difference in WAR between the highest performers and lowest performers, are likely to win more games in a season. 
+
+### Prediction of Player Success
+
+As previously mentioned, the data to be used in the analysis of the prediction of Major League Baseball hitter success is a collection of rudimentary statistics that have been used to evaluate the performance of hitters for many years. With this data, no additions or alterations were made to the statistics that were collected for all hitters with at least 250 plate appearances from 1996 to 2018. In order to eliminate the prediction advantage that some of the more recently introduced "advanced" statistics could have, we will neglect wOBA and wRC from our prediction model and maintain a focus on the more standard baseball statistics.
+
+We will begin our analysis of hitter performance by creating a series of linear regression and/or multiple regression models to identify if variables from the `PlayerStats` data can be used to explain the WAR statistic of a player. Following the initial evaluation of linear models to identify any simple relationships between one or more offensive statistics and Wins Above Replacement, we will perform a random forest classification to determine which variables are most important in the projection of the WAR statistic. This classification will identify which variables from the data are most closely related to a player's WAR and these "important" variables will be applied to an artifical neural network and decision tree to make precise predictions of Wins Above Replacement from the significant offensive statistics. The validity of each of the models will be assessed to determine if we are able to accurately able to predict the Wins Above Replacement value of a Major League Baseball player from some of the more simple statistics that are traditionally used.
+
+
+### Prediction of Team Success
+
+The data that we will use to project the number of team wins is slightly more complicated than the data used to evaluate hitter performance, so a brief explanation will be helpful in understanding how the statistics of interest were calculated. An individual player is attributed statistics for Wins Above Replacement (WAR), weighted On Base Average (wOBA), and weighted Runs Created (wRC). In order to create a metric for each of these statistics to be applied to an entire team, we calculated the average of each of these statistics among all players on a team and named those team-wide metrics WAR.mean, wOBA.mean, and wRC.mean. In addition to the mean for each statistic, we also calculated the standard deviation of each statistic among all players on the team and named those metrics WAR.spread, wOBA.spread, and wRC.spread. From these new metrics that evaluate an entire team's performance, we are able to get a better understanding of the average value of a statistic for a team as well as the Standard deviation of "spread" of that statistic among all players on a team.
+
+We will begin our analysis of team construction by using a random forest to see whether any of WAR, wOBA, or wRC is redundant with the others and can be left out of further analysis. We will then use linear models to analyze what remains, along with, if necessary, a decision tree or a neural net.
+
+
+## Analysis
+
+### Projection of MLB Hitter WAR
+
+```{r, echo=FALSE}
+ggplot(aes(x=WAR), data=PlayerStats) + geom_bar() + labs(title='Major League Baseball Hitter WAR between 1996 and 2018',x='Wins Above Replacement',y='Number of Occurences')
+PlayerStats %>% select(WAR) %>% summarize(max(WAR))
+```
+
+The visualization above helps to get an idea for how all MLB hitter Wins Above Replacement values are distributed between 1996 and 2018. The peak of the distribution is at a WAR value of about 1 or 2. The statistic stretches into negative values for poor performing players and reaches all the way to 12.7 for the highest WAR value recorded between 1996 and 2018 by Barry Bonds in 2002 while he played with the San Francisco Giants.
+
+```{r,echo=FALSE}
+#creates training and testing data sets from the full marchmadness data set (20% test, 80% train)
+set.seed(365)
+test_id <- sample(1:nrow(PlayerStats), size=round(0.2*nrow(PlayerStats)))
+TEST <- PlayerStats[test_id,]
+TRAIN <- PlayerStats[-test_id,]
+```
+
+```{r,echo=FALSE,warning=FALSE, message=FALSE}
+library(randomForest)
+#random forest with 'WAR' as response variable, displays importance of selected explanatory variables
+# The response variable needs to be a factor
+forest <- randomForest(WAR~G+PA+HR+R+RBI+SB+ISO+BABIP+AVG+OBP+SLG+OPS, data=TRAIN, mtry=6)
+```
+
+```{r, echo=FALSE}
+#IncNodePurity is the proper importance variable for a numerical response variable
+forest$importance %>% as.data.frame() %>% 
+  rownames_to_column() %>% 
+  arrange(desc(IncNodePurity))
+```
+
+A random forest classification with Wins Above Replacement indicates that Runs (R), On Base plus Slugging (OPS), Slugging (SLG), and On Base Percentage (OBP) are the 4 most important factors when determining a player's WAR value. These 4 factors have IncNodePurity importance values of 6799, 5894, 2184, and 1716, respectively. However, OPS is a combination of SLG and OBP so we will remove OBP and SLG from our analysis, as they are redundant with OPS. There is a drop-off in IncNodePurity before Plate Appearences appears, but we will include it in our models below because WAR is a counting stat. This means that it accumulates as a player gets more playing time, unlike a statistic such as OPS. To account for this, we will use plate appearences as a third explanatory variable in our models below. 
+
+```{r, echo=FALSE}
+lm_ops <- lm(WAR ~ OPS, data = PlayerStats)
+summary(lm_ops)
+plot(lm_ops)
+```
+
+A simple linear model with WAR as the response variable and On Base plus Slugging (OPS) as the explanatory variable has an adjusted R-squared value of 0.5572, meaning the model is capable of explaining about 56% of the variability in the data. The coefficients for this model are $\hat{\beta_0} = -9.3957$ and $\hat{\beta_1} = 14.7089$ so the equation of the model is $\bar{Y} = -9.3957 + 14.7089x$, where $x$ is a given OPS value. In this case, the linear model is valid because the residuals of the model are relatively evenly distributed about zero and the residuals also have little deviation in the normal Q-Q plot.
+
+```{r,echo=FALSE}
+lm_r <- lm(WAR ~ R, data = PlayerStats)
+summary(lm_r)
+plot(lm_r)
+```
+
+A simple linear model with WAR as the response variable and Runs (R) as the explanatory variable has an adjusted R-squared value of 0.5279, meaning the model is capable of explaining about 53% of the variability in the data. The coefficients for this model are $\hat{\beta_0} = -1.7377605$ and $\hat{\beta_1} = 0.0585970$ so the equation of the model is $\bar{Y} = -1.7377605 + 0.0585970x$, where $x$ is a given Runs value. In this case, the linear model is valid because the residuals of the model are evenly distributed about zero and the residuals also have do not have any sort of extreme deviation on the normal Q-Q plot. There is some deviation on the outer quantiles, but we still consider this linear model to be a good fit.
+
+```{r, echo=FALSE}
+#Find a confidence interval for WAR based on an OPS of 1
+new<-data.frame(OPS=1)
+predict(lm_ops, newdata=new, interval="conf")
+```
+
+A 95% confidence interval with OPS of 1 (on base percentage + slugging percentage = 1) indicates that we can be 95% confident that the mean WAR value for a player with an OPS of 1.000 (a benchmark for an MVP-caliber offensive player) is between 5.23 and 5.39.
+
+```{r,echo=FALSE}
+lm_mix <- lm(WAR ~ R+OPS+PA, data = TRAIN)
+summary(lm_mix)
+pr.lm <- predict(lm_mix, TEST)
+WAR_Predictions <- TEST %>% select(R, OPS, PA, WAR) %>% 
+  mutate(pr.lm = pr.lm)
+```
+
+A multiple regression linear model with WAR as the response variable and On Base plus Slugging (OPS) Runs (R), and Plate Appearances (PA) as the explanatory variables has an adjusted R-squared value of 0.6586, meaning the model is capable of explaining about 66% of the variability in the data. The coefficients for this model are $\hat{\beta_0} = -7.354$, $\hat{\beta_1} = 0.03388$, $\hat{\beta_2} = 9.316$ and $\hat{\beta_3} = 0.00001971$ so the equation of the model is $\bar{Y} = --7.354 + 0.03388x + 9.316x^2 + 0.00001971x^3 $, where $x$ is a given Runs value, $x^2$ is a given OPS value, and $x^3$ is a given Plate Appearances value. This multiple regression model is also a good fit because the residuals are distributed around zero and the normal Q-Q plot lacks any serious deviation.
+
+```{r,echo=FALSE,warning=FALSE, message=FALSE}
+#classification tree of WAR as response variable with Runs and OPS as explanatory variables.
+library(rpart)
+library(rattle)
+library(rpart.plot)
+library(RColorBrewer)
+
+tree <- rpart(WAR~R+OPS, data=TRAIN)
+pr.tree <- predict(tree, newdata=TEST)
+WAR_Predictions <- WAR_Predictions %>% mutate(pr.tree = pr.tree)
+fancyRpartPlot(tree)
+```
+
+Here, we made a decision tree with Runs and OPS as explanatory variables and WAR as the response variable (we did not include Plate Appearances in this model because it was not significant enough to serve as any of the decision tree branch points). This shows some threshold cutoffs of Runs and OPS and what certain ranges of each statistic indicate a player's WAR value will be.
+
+```{r, echo=FALSE,results="hide", warning=FALSE, message=FALSE}
+#A neural net of WAR as the response variable with Runs, OPS, and plate appearences as explanatory variables
+#install.packages("caret")
+library(caret)
+WAR_nn <- train(WAR~R+OPS+PA, TRAIN, method="nnet")
+pr.nn <- predict(WAR_nn, TEST)
+WAR_Predictions <- WAR_Predictions %>% mutate(pr.nn = pr.nn)
+```
+
+
+Let's evaluate the predictive ability of our three different models, which we will do using mean squared error.
+
+```{r, echo=FALSE}
+#install.packages("MLmetrics")
+library(MLmetrics)
+WAR_Predictions %>% summarize(MSE.lm=MSE(pr.lm, WAR), MSE.tree=MSE(pr.tree, WAR), MSE.nn=MSE(pr.nn, WAR))
+```
+
+It appears that, using runs scored, OPS, and plate appearences as explanatory variables, a player's WAR is best predicted using our neural net. In general, it is best to target players with high numbers in each of these categories, as they can contribute to a team's offense at the plate and on the basepaths, and have the durability to contribute over the course of a full MLB season.
+
+As a shorthand evaluation of the efficacy of these predictions, consider the plot below.
+
+```{r, echo=FALSE}
+ggplot(WAR_Predictions, aes(x=WAR, y=pr.nn)) + geom_point(shape=1, alpha=0.8) + geom_smooth(method="lm") +
+  labs(x="Actual WAR", y="WAR Predicted by Neural Net", title="Neural Net Prediction Evaluation")
+cor(pr.nn~WAR, data=WAR_Predictions)
+```
+
+As is clear from the plot, the neural net (our most accurate predictor by MSE) did a good job predicting the actual WAR values based on runs scored, OPS, and plate appearences, with a correlation between predicted and actual WAR of $R = 0.8236$.
+
+### Projection of MLB Team Wins
+
+In this section, note that we're going to ignore mean WAR, wOBA, and wRC in our analysis. This is because they inform us about the average player on a team, and obviously a team with a better average player will be a better team. We are more interested in the distribution of catch-all offensive statistics on a team and how this distribution affects winning, rather than sheer offensive quality.
+
+
+```{r, echo=FALSE}
+test_id2 <- sample(1:nrow(winfactors), size=round(0.2*nrow(winfactors)))
+TEST2 <- winfactors[test_id2,]
+TRAIN2 <- winfactors[-test_id2,]
+```
+
+
+```{r, echo=FALSE}
+#random forest with winning percentage as response variable, displays importance of selected explanatory variables
+# The response variable needs to be a factor
+forest2 <- randomForest(WinPct~WAR.Spread+wOBA.Spread+wRC.Spread, data=TRAIN2, mtry=3)
+#IncNodePurity is the proper importance variable for a numerical response variable
+forest2$importance %>% as.data.frame() %>% 
+  rownames_to_column() %>% 
+  arrange(desc(IncNodePurity))
+```
+
+As expected, the spread of WAR spread is the best predictor of winning percentatge, with a drop-off before the other two statistics. We will therefore use the `WAR.Spread` variable as our explanatory variable in linear models.
+
+```{r, echo=FALSE}
+model <- lm(WinPct~WAR.Spread, data=TRAIN2)
+summary(model)
+plot(model)
+```
+
+Note that despite the clear-looking linear relationship between wins and WAR spread shown in our preliminary analysis, only about 10% of the variability of winning percentage is explained by the spread of WAR. The residual plots look acceptable. Let's try some predictions.
+
+```{r, echo=FALSE}
+pr.lm <- predict(model, TEST2)
+Win_Predictions <- TEST2 %>% select(WinPct, WAR.Spread) %>% 
+  mutate(pr.lm = pr.lm)
+```
+
+Next, we'll try a decision tree.
+
+```{r,echo=FALSE,warning=FALSE, message=FALSE}
+tree <- rpart(WinPct~WAR.Spread, data=TRAIN2)
+pr.tree <- predict(tree, newdata=TEST2)
+Win_Predictions <- Win_Predictions %>% mutate(pr.tree = pr.tree)
+fancyRpartPlot(tree)
+```
+
+And finally, a neural net.
+
+```{r, echo=FALSE,results="hide", warning=FALSE, message=FALSE}
+WAR_nn <- train(WinPct~WAR.Spread, TRAIN2, method="nnet")
+pr.nn <- predict(WAR_nn, TEST2)
+Win_Predictions <- Win_Predictions %>% mutate(pr.nn = pr.nn)
+```
+
+
+Let's evaluate the predictive ability of our three different models, which we will do using mean squared error.
+
+```{r,echo=FALSE}
+Win_Predictions %>% summarize(MSE.lm=MSE(pr.lm, WinPct), MSE.tree=MSE(pr.tree, WinPct), MSE.nn=MSE(pr.nn, WinPct))
+```
+
+As a shorthand for the efficacy of our models, consider the plot below.
+
+```{r,echo=FALSE}
+ggplot(Win_Predictions, aes(x=WinPct, y=pr.tree)) + geom_point() + geom_smooth(method="lm") +
+  labs(x="Winning Percentage", y="Winning Percentage Predicted by Decision Tree", title="Decision Tree Prediction Evaluation")
+```
+
+As is clear from the graph, our decision tree (the best predictor of winning percentage by MSE) did not do a good job predicting winning percentage based on the `WAR.Spread` metric.
+
+## Conclusion & Discussion
+
+After applying a collection of models with our analysis to answer each of the original research questions that we set out to answer, we have gathered some insight towards how to use basic offensive baseball statistics to predict the Wins Above Replacement of individual players and how to use player WAR values to best assemble a 25-man roster to accumulate the most game wins in a season.
+
+### WAR Predictions
+
+Let's first look at what we found from trying to predict player WAR from basic offensive statistics. It is important to note right away that the distribution of WAR values among all hitters with at least 250 plate appearances between 1996 and 2018 is heavily right skewed with the peak of the distribution around a WAR value of 1 or 2. Therefore, the large majority of players have WAR of about one and there are far fewer players with WAR values that exceed 5. An initial random forest to determine the importance of the different basic statistics from the PlayerStats data set indicated that Runs, OPS, Slugging Percentage, On Base Percentage, and Plate appearances are the most important variables towards predicting a player's WAR value. With these important variables, we evaluated a collection of linear models involving OPS and Runs. These linear models both fit the PlayerStats data relatively well and were both capable of explaining above 50% of the variability in the data. From this, we concluded that both OPS (which is a combination of OBP and SLG) and Runs, have valid linear relationships with projecting WAR, which provided a simple method early on to make predictions with relatively high accuracy based off of a single offensive statistic. Following our linear models, we utilized a classification tree with WAR as the response variable and Runs and OPS as explanatory variables. This model gave some rudimentary predictions with decisions based on OPS and Runs that sorted WAR values into "bins" based off of certain thresholds in OPS and Runs values. We believe this is a valid method to show how a player's WAR value is affected by different cutoff values of the most important statistics involved in predicting WAR. Finally, we developed an artificial neural network to predict WAR values based on Runs, OPS, and Plate appearences. To evaluate the performance of the linear models, classification tree, and neural network, we calculated the Mean Squared Error of predictions for each of these methods and found that the neural network had the smallest MSE value (1.296714) by slim margin over the linear models (1.372274). We therefore recommend the use of our neural net as a method by which a player's WAR can be predicted using basic statistics.
+
+Overall, we believe our WAR prediction model is a strong performer and is fairly valid considering the methods in which we collected and applied the data to the models. As we mentioned earlier, it is important to note how most players have WAR values around 1 or 2 and there are few players with WAR greater than 5. This significant skew likely makes predicting the WAR value of lower performing players more difficult since there is so much variability in their statistics that culminate in determining their WAR value. On the extreme high end of the distribution are very high performing players with WAR values that reach 10 and beyond. Since these are the highest performing offensive players, it only makes sense that they will have consistently strong offensive statistics overall. Therefore, we would suspect the highest OPS and Run values to lead to the highest WAR values. It is the "average" players where this prediction model might struggle which is an issue that would be important to address moving forward. We would also like to point out that we felt as if we still have a fairly limited knowledge and understanding of how artificial neural networks operate and produce their results. Moving forward, we would like to get a better grasp on ANN's to be able to better interpret the output of the framework and understand the meaning of the results beyond the point of knowing that the MSE of its predictions is lower than the rest of the models that we tried. All things considered, in this analysis of MLB hitter Wins Above Replacement, we determined that basic offensive baseball statistics such as OPS and Runs have reasonable linear relationships with player Wins Above Replacment values and those statistics can be used as a simple metric to evaluate a player's performance and objective value to their team without needing to calculate an extremely intricate metric like WAR.
+
+### Win Predictions
+
+To predict a team's winning percentage based on a simple quantification of their roster construction (the `WAR.Spread` statistic), we used a linear model, a decision tree, and a neural net. Using `WAR.Spread` to predict a team's winning percentage turned out to be a poor strategy, despite the encouraging trend observed in our preliminary studies. Our linear model showed that `WAR.Spread` could only account for around 10% of the variability in a team's winning percentage. We believe this is because of the already-mentioned reality of overall WAR-distribution. The vast majority of players have a WAR value somewhere between 0 and 2, and there is a strong right-skew in player WAR. The best teams will often have a player one or two with a WAR greater than or equal to 7, with some players pushing WAR up toward the 10-12 range of the best seasons of all time. Due to the underlying distribution of WAR, even those teams will be composed primarily of players with WAR between 0 and 2, causing the team's standard deviation in WAR (i.e. `WAR.Spread`) to increase. This explains the general trend observed in our preliminary study. However, not every great team will have a singularly great player (because there just aren't very many players like that), so some teams will win a lot of games without having a particularly large `WAR.Spread` statistic. These are the teams scuttling the trend we observed in our preliminary study, and they are the reason that our models were not very effective at predicting a team's winning percentage. Our prelimninary analysis did not account for the variability of `WAR.Spread` for teams with a given number of wins, so we observed a trend that we probably would not have seen if we had included, for instance, error bars in the plot.
+
+To improve this analysis, we would need a dataset encapsulating player _and_ team data for given players, teams, and seasons. During our project proposal, we tried to build a dataset like this, but weren't able to sort out a way to do it without adding 7060 additional observations to our player dataset by hand, which seemed like an uproductive use of everyone's time. With a dataset like this, we could perform a whole new set of analyses. We'd be particularly interested to see how the maximum WAR of a single player on a team affected that team's winning percentage. This is a curiosity to us becuase the best player of our lives, Mike Trout, routinely puts up seasons worth 9 or 10 wins above replacement, but his team misses the playoffs and doesn't win very many games. You would think that such a dominant player would help propel a team, but he often doesn't. Another exmaple of this is the team with the highest `WAR.Spread` in our entire sample.
+
+```{r,echo=FALSE}
+winfactors %>% filter(WAR.Spread==max(WAR.Spread))
+```
+
+The 2001 Giants featured Barry Bonds in the midst of one the great offensive season ever, when he hit 73 home runs, the all-time record. However, the team only won 90 games, which is certainly a good season, but is nowhere near the 116-win record set that very same year by the Mariners.
+
+```{r,echo=FALSE}
+winfactors %>% filter(Wins==max(Wins))
+mean(winfactors$WAR.Spread)
+```
+
+As you can see, those record-setting Mariners had a `WAR.Spread` of 1.98, sitting almost exactly at the `WAR.Spread` mean (1.93). 
+
+```{r,echo=FALSE}
+PlayerStats %>% filter(Team=="Mariners", Season==2001) %>% select(Name, WAR) %>%
+  arrange(desc(WAR))
+```
+
+Among its eleven regular hitters, the 2001 Mariners team had three players worth 5.5 wins or more, and five players worth more than 4.5 wins. They would seem to indicate value in a lower `WAR.Spread` relative to total team WAR.
+
+There is obviously much more to analyze here, but the type of investigation I've just done necessitates clunkily jumping from one dataset to another, and prohibits applying similar analysis to a larger scale. With a more detailed dataset that merges player, team, and season data, we'd be able to perform more robust analyses of this sort, and do a much better job answering the question "What type of roster wins the most baseball games?" with something a little bit more informative than "The one with good players."
+
+
+
+
+![Willians Astudillo demonstrating his immense value to the Minnesota Twins. source: Major League Baseball](https://thumbs.gfycat.com/AnotherDeafeningAnura-size_restricted.gif)
+
+![And to account for Shelby's allegiance and love of Alex Gordon. source: Major League Baseball](https://media.giphy.com/media/4WtnDr2R9I1Pi/giphy.gif)
+
+![One last one since its more than applicable 🤗. source: Disney](https://media1.tenor.com/images/8d4b294dc368b856d71a64ac2f326b69/tenor.gif?itemid=4253515)

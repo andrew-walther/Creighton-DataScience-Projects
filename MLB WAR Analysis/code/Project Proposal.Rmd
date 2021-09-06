@@ -1,0 +1,77 @@
+---
+title: "MTH 365 - Final Project Proposal"
+author: "Mark May, Shelby Smith, and Andrew Walther"
+date: "4/5/2019"
+output: html_document
+---
+
+## Introduction
+
+In baseball circles, the optimal team-building strategy is a source of endless debate. Is it better to funnel limited financial resources toward a few star players and populate the rest of the team with replacement-level players (the so-called "stars and scrubs" model), or to build a team with more consistent depth but less top-end talent? We are interested in exploring the relationship between the structure of a Major League Baseball team and distribution of high performing versus lower performing players and a teams success in terms of games won.
+
+On a more detailed level, we are also interested in determining which batting statistics are most indicative of a player with high a WAR (Wins Above Replacement) statistic. While we are aware that a number of typical hitting statistics are used in the calculation of WAR, we are interested in determing which performance statistics are most influential in determining a player's WAR value. From this, we hope to be able to build a predictive model that can accurately determine a player's WAR value in the present or future based off of other simpler statistics.
+
+The data that will be used in this analysis of team success and WAR is taken from Fangraphs and Baseball Reference, two websites that host large collections of baseball data dating back to the 1800's. The data from these sites was downloaded in csv format files. The hitting statistic data from Fangraphs has 20 variables that are: Season, Name, Team, Games (G), Plate Appearances (PA), Home Runs (HR), Runs (R), Runs Batted In (RBI), Stolen Bases (SB), Walks (BB), Strikeouts (K), Isolated Power (ISO), Batting average on balls in play (BABIP), Batting Average (AVG), On Base Percentage (OBP), Slugging Percentage (SLG), Weighted on base average (wOBA), weighted runs created (wRC), Wins Above Replacement (WAR), and Salary (Dollars). The team win/loss data taken from Baseball Reference has these variables: Year, Team, Wins, and Winning Percentage (a value that we calculated).
+
+The scripts that we used to clean these datasets and prepare them for analysis areon file, but Blueline won't let me submit them. Email MarkMay@creighton.edu if you would like to reference them. The datasets are loaded here.
+
+```{r}
+library(tidyverse)
+PlayerStats <- read.csv("C:/Users/markt/OneDrive - Creighton University/Creighton/Junior Year/Spring 2019/MTH 365/Projects/Final Project/PlayerStats.csv")
+winfactors <- read.csv("C:/Users/markt/OneDrive - Creighton University/Creighton/Junior Year/Spring 2019/MTH 365/Projects/Final Project/winfactors.csv")
+```
+
+
+## Data Analysis Plan
+
+- The outcome (dependent, response, Y) and predictor (independent, explanatory, X) variables you will use to answer your question.
+- The comparison groups you will use, if applicable.
+- Very preliminary exploratory data analysis, including some summary statistics and visualizations, along with some explanation on how they help you learn more about your data. (You can add to these later as you work on your project.)
+- The statistical method(s) that you believe will be useful in answering your question(s). (You can update these later as you work on your project.)
+- What results from these specific statistical methods are needed to support your hypothesized answer?
+
+### Prediction of Team Success
+
+For analyzing team success based on the structure of teams with high versus low performing players, we will use wins and/or winning percentage as a response variable since it is a strong metric of overall team success. For explanatory variables, we plan to make use of the variety of variables present in the data sets we are using in order to develop a sound model to find what team attributes are indicative of different level of overall team performance. At this point in time we do not expect to utilize this method, but we will consider analyzing the data we have separated by seasons to investigate whether or not the progression of time has an effect on the metrics that we are interested in.
+
+#### Preliminary Team Analysis
+
+In our opinion, the best way to analyze the stars and scrubs vs consistent depth roster building question is through the spread of WAR among a team's regular players. WAR, or Wins Above Replacement, is a catch-all statistic for player's value. It measures how many wins a team gained in a season because it played a given player instead of a replacement-level player (i.e., a random player). For a sense of scale, a player with a WAR of 2.0 is considered starter-level, and a player with a WAR of 5.0 is considered All Star-level. We can speak of a 5-WAR player as being "worth 5 wins." We expect a team with a stars and scrubs style roster to have a very high variance of WAR among its players, and a team with more consistent depth to have a lower variance of WAR among its players. 
+
+The `WAR.Spread` variable in the `winfactors` dataset is the standard deviation of a given team's WAR in a given season, a measure of how variable its WAR is. Below, we grouped every season in our dataset by the number of wins the team got, and plotted this against the average WAR standard deviation a team with that many wins had in the season. 
+
+```{r}
+war.wins <- winfactors %>% group_by(Wins) %>%
+  summarize(MeanWARSpread = mean(WAR.Spread))
+ggplot(war.wins, aes(x=Wins, y=MeanWARSpread)) + geom_point() + geom_smooth(method="lm") + 
+  labs(x="Season Wins", y="Average WAR Spread", title="Average WAR Spread for Teams with a Given Number of Wins")
+```
+
+As you can see, there is a notable correlation between wins and WAR Spread. This is fascinating to us, and something we will explore further in our project.
+
+### Prediction of Player Success
+
+In analyzing individual players, we will employ Wins Above Replacement (WAR) as the explanatory variable since we are interested in finding other statistics that can serves as strong predictors of a player's WAR. Once again, in order to develop a model that can most accurately and universally predict a players WAR statistic, we will look at the full breadth of statistics presented by the data sets used in this analysis. From this data, we hope to devise a simple yet effective model for projecting the WAR of a given player's performance.
+
+#### Preliminary Player Analysis
+
+One tool that we think will be an extremely strong predictor of WAR is OPS. OPS is the sum of a players On-Base Percentage (OBP) and Slugging Percentage (SLG). A player with a high OPS gets on base a lot, hits a lot of extra base hits, and is generally an extremely productive offensive player. We expect that OPS will be an extremely important predictor of WAR. We have plotted OPS against WAR below.
+
+```{r}
+PlayerStats <- PlayerStats %>% mutate(OPS = OBP + SLG)
+ggplot(PlayerStats, aes(x=OPS, y=WAR)) + geom_point(shape=1, alpha=0.5) + 
+  labs(title="OPS vs WAR")
+```
+
+The correlation here is obvious. OPS is, we assume, the best simple statistic that we can use to predict WAR. We will explore other options for this in our project.
+
+### Proposed Statistical Methods
+
+We plan to utilize a variety of statistical methods in the construction of our predictive models. We will begin making simple plots of variables of interest to view patterns in the data. Principal component analysis will be performed to examine any colinearity that is present between the explanatory variables. For the player predictor, we will likely need to use machine learning of some sort to build our predictive model.
+
+## Data
+
+The data sets that we will use to perform the analysis were taken from FanGraphs and Baseball Reference, a pair of baseball statistics repositories. Fangraphs can be found at https://www.fangraphs.com and Baseball Reference can be found at https://www.baseball-reference.com. From Fangraphs we will use 'Batting' data found in the "Major League Leaderboards" section. Here, we filtered for years between 1996 and 2018 on batters with a minimum of 250 plate appearances. We downloaded the CSV formatted data provided underneath the "dashboard" tab. We will use win-loss data for the 30 MLB teams taken from Baseball Reference for the seasons in the years 1996 to 2018. 
+
+
+

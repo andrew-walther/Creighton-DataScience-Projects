@@ -1,0 +1,209 @@
+---
+title: "Mini-Project 4: Analyzing Your Scraped Data"
+subtitle: "MTH 365: Intro to Data Science"
+author: "Andrew Walther"
+date: "Due April 12, 2019"
+output: html_document
+---
+
+```{r}
+library(mosaic)
+library(tidyverse)
+library(ggplot2)
+marchmadness <- read.csv("~/Documents/Creighton Docs/Spring 2019/MTH 365/data sets/marchmadness.csv")
+glimpse(marchmadness)
+```
+
+
+## Introduction
+
+In this analysis of data from the NCAA Mens Basketball tournament from 2011-2014 I hope to determine the effect that a teams seeding has on both their predicted likelihood to win a game and actual likelihood to win a game throughout the March Madness tournament. The data set that is used in this analysis has variables for the year a game was played, which round of the tournament the game was played, the "favorite" school in a particular game, the "underdog" school in a particular game, the projected probability of the "favorite" team winning, whether or not the "favorite" team won the game, the seed of the "favorite" team, the seed of the "underdog" team, whether or not the higher seed was the favorite to win the game, whether or not the higher seeded team won the game, and the difference in seed numbers between the two teams. (Note: When two teams of the same seed number were matched in a game, the favorite team was considered the higher seed and that is reflected in wheter or not the high seed won the game.)
+
+## Methods
+
+The variables included in the data set lend themselves to a wide variety of techniques that can be used to analyze connections between them and make predictions. Some of the methods that will be used are linear regression, random forests for classification, artificial neural networks, and principal components analysis. Based off of the performance and viability of each technique, I will decide which method best suits the findings with regards to the research question and the most effective models will be included in the final analysis and results.
+
+Linear regression is possibly a strong technique for my analysis because it is a relatively simple process that will help to expose any linear relationships between variables in the data set. For example, a regression model can show whether or not there is connection between a teams seed number and their likelihood of winning a game. A random forest classification model will likely be a good method for breaking the data up into classification groups based off of the likelihood of winning a game by seed number or the difference in seed numbers between the two teams in a game. An artificial neural network might be a viable model for predicting the winners of games, but I am concerned that there is not enough supplemental data to support each team so the neural network might not outperform other prediction techniques as much as it could if there were more statistics provided for each team. Lastly, principle components analysis is a good method for understanding the variability in data. This method might be a strong performer for identifying fluctuations between tournament games in different years or between successive rounds of the tournament. 
+
+## Exploratory Analysis
+
+Provided below are a few plots of exploratory analysis to look at the connections between some of the variables in the data sets and any interesting trends that might come from a visualization.
+
+```{r}
+#a scatter plot of favorite winning probabilities separated by tournament round
+ggplot(aes(x=Round, y=FavWinProb),data=marchmadness) + geom_point(alpha=0.5) + geom_jitter() + aes(color=as.factor(FavWinYes)) + labs(x='Tournament Round',y='Favorite Win Probability',title='NCAA Basketball Tournament Win Probabilities of Favorites by Round')
+```
+
+- Here, win probabilities of the favorite team are broken up by tournament round. Here, it is important to note that there are very few games classified as being in Round 1. These are 'play-in' games to reach the full field of 64 teams. There is an apparent downward trend in Favorite Win Probability as the tournament rounds progress. Variability in win probability also significantly decreases in later tournament rounds when compared to Rounds 2 or 3.
+
+```{r}
+#plot of absolute seed difference vs. favorite win probability
+ggplot(aes(x=SeedDiff,y=FavWinProb),data=marchmadness) + geom_point() + geom_jitter() + geom_smooth(method='lm') + aes(color=as.factor(FavWinYes)) + labs(x='Absolute Difference in Seeds',y='Win Probability of Favorite',title='Absolute Seed Difference vs. Favorite Win Probability')
+```
+
+- This plot shows that as the absolute difference in seeds between two teams increases, the win probability of the favorite team also increases. This makes sense and it is interesting to see that as the absolute seed difference increases, more and more of the games ultimately had the favorite team winning, but lower seed differences were more of a tossup in the result of the game.
+
+```{r}
+#histogram of absolute seed differences by occurance
+ggplot(aes(x=SeedDiff), data = marchmadness) + geom_histogram(binwidth = 1, fill='indianred', col='blue'       ) + labs(x='Absolute Difference in Seeds',y='Number of Games',title='Histogram of NCAA Basketball Tournament games with Absolute Seed Difference')
+```
+
+- A histogram of absolute seed difference shows the frequency of different spreads in seeds between the two teams in a game. It is apparent that a seed difference of 1 is most common, followed by differences of 3 and 7. There is a relatively clear trend where games between teams with very high seed differences are very unlikely and some do not occur at all due to the structure of the bracketing for the tournament (for example, there is almost no chance that a seed difference of 14 will ever occur because a 2 seed and 16 seed or 1 seed and 15 seed are not able to play in a matchup until at least the 5th round of the tournament.)
+
+```{r}
+ggplot(aes(x=FavSeed,y=FavWinProb),data=marchmadness) + geom_point() + geom_jitter() + geom_smooth(method='lm') + labs(x='Favorite Seed',y='Win Probability of Favorite',title='Favorite Seed vs. Favorite Win Probability')
+
+ggplot(aes(x=DogSeed,y=FavWinProb),data=marchmadness) + geom_point() + geom_jitter() + geom_smooth(method='lm') + labs(x='Underdog Seed',y='Win Probability of Favorite',title='Underdog Seed vs. Favorite Win Probability')
+```
+
+- These scatter plots show the relationships between the Favorite Seed and Underdog Seed with the favorite win probability. The example with the favorite seed appears to have a slight linear trend with alot of variability in win probability at the low seed numbers. The plot with the undergdog seed does not have as much of a clear trend, but a linear regression model might be an interesting test with these variables.
+## Analysis & Results
+
+In the following section, a variety of statistical models are explored, generally using the favorite team's projected winning probability or whether or not the high seed in a game won as the response variable of interest.
+
+### Linear Regression
+
+```{r}
+#a linear regression model with win probability as the response varible and "favorite" seed and "underdog" seed as explanatory variables.
+linmodel_winprob <- lm(FavWinProb ~ FavSeed + DogSeed, data = marchmadness)
+summary(linmodel_winprob)
+```
+
+- This linear regression model was created to investigate the strength of a possible linear relationship between favorite win probabilities with favorite seeds and underdog seeds. Some of the exploratory data analysis indicated that a linear relationship might exist and with favorite win probability as the response variability, both favorite seed and underdog seed are significant variables and the model has an adjusted R-squared value of 0.638, meaning the model can explain about 64% of the variability in the data. This is not superb by any standard, but it is also not terrible. This regression model is reasonable option for predicting the win probability of the favorite team in the game based off the seed numbers of the two teams involved.
+
+```{r}
+linmodel_winprob1 <- lm(FavWinProb ~ SeedDiff, data = marchmadness)
+summary(linmodel_winprob1)
+```
+
+- A second linear regression model sets favorite win probability as the response variable and absolute seed difference as the explanatory variable. One of the exploratory plots from above showed a fairly strong linear relationship between win probability and absolute seed difference. In the model results, absolute seed difference has a p-value much less than $\alpha = 0.05$ indicating that it is quite significant and the model's adjusted R-squared value is 0.6592. This means that the model is able to account for about 66% of the variability in the data. This regression model appears to be slightly better at making predictions than the previous as it utilizes a joint variable that compares the team's seeds in each specific game.
+
+### Random Forest with importance
+
+```{r}
+#creates training and testing data sets from the full marchmadness data set (20% test, 80% train)
+set.seed(365)
+test_id <- sample(1:nrow(marchmadness), size=round(0.2*nrow(marchmadness)))
+TEST <- marchmadness[test_id,]
+TRAIN <- marchmadness[-test_id,]
+```
+
+```{r}
+library(randomForest)
+#random forest with 'HighSeedWin' as response variable, displays importance of selected explanatory variables
+# The response variable needs to be a factor
+forest <- randomForest(as.factor(HighSeedWin)~FavWinProb+FavSeed+DogSeed+HighSeedFav+SeedDiff, data=TRAIN, mtry=3)
+forest
+
+importance(forest) %>% as.data.frame() %>% 
+  rownames_to_column() %>% 
+  arrange(desc(MeanDecreaseGini))
+```
+
+- This random forest looked at the significance of a selection of explanatory variables in predicting whether or not the higher seed (lower seed number) would win a game in the NCAA Basketball tournament. This is a viable test because it essentially determines the most important variable in predicting the value of the response variable. From this, the random forest determined that favorite win probability is by far the most important variable in dermining wheter or not the higher seed in a game will win. This was followed by the seed of the favorite team and the seed of the underdog team. Just based off of the training data, the random forest correctly classified 126 out of 202 games with regards to whether or not the high seed won or not.
+
+### Classification tree with confusion matrix for success
+
+```{r}
+#classification tree of high seed winning as response variable with favorite win probability, favorite seed, and underdog seed as explanatory variables.
+library(rattle)
+library(rpart.plot)
+library(RColorBrewer)
+
+tree <- rpart(as.factor(HighSeedWin)~FavWinProb+FavSeed+DogSeed, data=TRAIN)
+fancyRpartPlot(tree)
+```
+
+(1 at the top of each box indicates the higher seed won the game. 0 indicates that lower seed wins the game.)
+
+- Based off of the most important variables in determining if the higher seed wins a NCAA basketball tournament game, I created a classification tree to investigate what specific values of the explanatory variables determing if the high seed in a game will win. One of the initally branches of the tree indicates that if the favorite win probability is greater than or equal to 81%, then the high seed wins the game 92% of the time. In addition, if 'FavWinProb' is less than 81% and the favorite seed is greater than 9.5, then the low seed in the game wins about two thirds of the time. This particular branch accounted for about 9% of the games in the dataset. The rest of the branches can be followed through to gain additional insights into the data.
+
+
+```{r}
+#confusion matrix for predictions on a high seed winning or not
+#classification tree is applied to testing data set
+win_tree <- as.vector(predict(tree, type="class", TEST))
+TEST <- TEST %>% mutate(win_tree = win_tree)
+confusion <- tally(win_tree~HighSeedWin, data = TEST)
+confusion
+sum(diag(confusion))/nrow(TEST)
+```
+
+- When the classification tree is applied to the testing data set, it achieved about 60% accuracy in classifying whether or not the higher seed won a game. Judging from the confusion matrix, it appears that there were a sizeable number of false positive results where the model predicted that the high seed won when in reality the low seed won. This is an indication that the specificity of the model is not correctly in tune with the data so the rate of true negatives is not accurately portrayed. The model also incorrectly classified about one third of the true positive results.
+
+```{r}
+tree2 <- rpart(as.factor(HighSeedWin)~FavWinProb, data=TRAIN)
+fancyRpartPlot(tree2)
+```
+
+- This is a second classification tree that uses favorite win probability (the most important variable according to the random forest) as the only explanatory variable in predicting if a high seed wins a game. This classification tree is slightly more concise in its branching since it is only based on a single variable.
+
+```{r}
+#confusion matrix for predictions on a high seed winning or not
+#classification tree is applied to testing data set
+win_tree2 <- as.vector(predict(tree2, type="class", TEST))
+TEST <- TEST %>% mutate(win_tree2 = win_tree2)
+confusion2 <- tally(win_tree2~HighSeedWin, data = TEST)
+confusion2
+sum(diag(confusion2))/nrow(TEST)
+```
+
+- This second classification tree applied to the testing data set returned slightly better performance results than the first classification tree. In this case, the model correctly classified about 63% of the games. However, once again the model appears to have some issues with false positive classifications when the low seed wins a game.
+
+### K-Nearest Neighbors
+
+```{r}
+#creates a new data set with only the numerical variables from the original march madness data set
+marchmadness2 <- marchmadness %>% select(c('Year','Round','FavWinProb','FavWinYes','FavSeed','DogSeed','HighSeedFav','HighSeedWin','SeedDiff'))
+#splits new data set into testing and training sets with 80% of data for training and 20% for testing
+set.seed(365)
+test_id2 <- sample(1:nrow(marchmadness2), size=round(0.2*nrow(marchmadness2)))
+TEST2 <- marchmadness2[test_id2,]
+TRAIN2 <- marchmadness2[-test_id2,]
+```
+
+```{r}
+library(class)
+#k-nearest neighbors model using 5 nearest neighboring data points
+#'HighSeedWin' is the response variable
+knn_marchmadness <- knn(TRAIN2, TEST2, cl=as.factor(TRAIN2$HighSeedWin), k=5, prob=TRUE)
+```
+
+```{rk}
+#creates confusion matrix for k-nearest neighbors model to evaluate predictions against true values.
+TEST2 <- TEST2 %>% mutate(KNN_Predict = knn_marchmadness)
+
+confusion_marchmadness <- tally(HighSeedWin~KNN_Predict, data=TEST2)
+confusion_marchmadness
+sum(diag(confusion_marchmadness))/nrow(TEST2)
+```
+
+- In this segment, a new dataset is used which only contains the numerical variables. Then, the data was assessed using a K-nearest neighbors model with 'HighSeedWin' designated as the response variable. This model also used the 5 nearest neighboring data points to make predictions on classification. Using 5 nearest neighbors, the model had a classification of about 73% on the testing data set when classifying whether or not the higher seed wins the game. This model had fairly strong success classifying games where the high seed actually does win (~75%), but it only had 50% accuracy in correctly classifying games where the high seed does not win. This indicates an issue with specificity where the model predicts false positive values about half of the time. 
+
+### Neural Network
+
+```{r}
+#artificial neural network with 'HighSeedWin' as the response variable. Used 8 nodes for the other 8 explanatory variables in the data set.
+library(nnet)
+set.seed(365)
+bball_nnet_test <- nnet(as.factor(HighSeedWin) ~ Round+Year+FavWinProb+FavWinYes+FavSeed+DogSeed+HighSeedFav+SeedDiff, 
+                    data=TEST, size=8)
+bball_nnet_test
+
+cols <- c(2,3,6:10,12)
+prediction_nnet8 <- predict(bball_nnet_test, newdata=TEST[,cols], type='class')
+TEST <- TEST %>% mutate(Prediction_NNET8=prediction_nnet8)
+net_predictions <- tally(HighSeedWin~Prediction_NNET8, data=TEST)
+net_predictions
+sum(diag(net_predictions))/nrow(TEST)
+```
+
+- The final model tested is an 8 node artificial neural network with 'HighSeedWin' as the response variable and all of the other variables from the march madness data set as explanatory variables. The neural network predicted all 51 games in the testing dataset to have the high seed as the winner. This is clearly an issue because in reality, 14 of those games were won by the low seed so the neural network has a serious problem with false positive predictions. Due to this, the neural network is definitely not a viable model for predicting wheter or not the high seed wins a basketball game.
+
+## Conclusions
+
+The march madness data set provided the opportunity to use a variety of statistical techniques to explore the connections between the data and possibly make future projections. After careful analysis with a number of techniques, some of the models performed poorly and do not provide much insight into the data, but others are quite informative as they lend valuable information towards understanding the data. In the analysis, methods such as linear regression, random forests, classification trees, k-nearest neighbors, and artificial neural networks were applied to the data to seek out relationships in the data and what factors are the best indicators of the winning probability of the favored team in a game and if a the higher seed in a basketball game will win.
+
+In terms of results, the linear regression to predict favorite win probability based off of the absolute seed difference of the teams involved is able to predict about 66% of the data's variability. This seems to be a fairly simple model that could be effective in predicting win probabilities because there is a fairly strong linear relationship between win probability and seed difference. Another model that has relatively strong results is the classification tree with 'HighSeedWin' as the response variable and favorite win probability as the explanatory variable. This model gives a strong visual indication to what values of the variables of interest correspond to certain proportions of the high seed of a game winning. The confusion matrix indicates that the predictions of the classification tree are about 63% accurate and the model was relatively strong in predicting both positive and negative results for the high seed in a game winning. This is important because some of the other models had serious issues with false positives, where the models indicated that the high seed of a game would win almost every game. Outside of the two aforementioned models, the other models lacked high levels of performance or struggled with specificity levels in distinguishing between positive and negative results.
+
+Overall, the regression model influenced by absolute seed difference is a strong model to predict the win probability for a favorite and the classification tree with favorite win probability is a strong model to predict if the high seed in a game will win a game. The ability of being able to predict the outcomes of these variables is crucial towards projecting the likelihood of a particular team to win a game in the NCAA Men's Basketball Tournment, which is the primary question of interest put that was put forth at the outset of this analysis.

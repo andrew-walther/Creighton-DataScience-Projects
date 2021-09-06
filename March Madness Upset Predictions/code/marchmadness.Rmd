@@ -1,0 +1,48 @@
+---
+title: "March Madness"
+author: "Andrew Walther"
+date: "2/22/2019"
+output: html_document
+---
+
+##Scrape Something - March Madness Upset Probabilities
+
+- This dataset is interesting because I have always enjoyed watching the march madness basketball tournament and trying to fill out the perfect bracket. This involves picking the right upsets which are looked at a little closer in this data set. It contains a number of matchups from the tournament between 2011 2014. This dataset looks at the underdog vs. favorite matchups and the probability of the favorite winning the game, followed by the true outcome of the game. 
+
+- To scrape the dataset, I used the "Selector Gadget" Google Chrome extension to identify the html_nodes. I also used a similar form of code as the Nebraska Breweries scraping example from class to acquire the data and organize it into its proper tidy form with appropriate column headings.
+
+- Although it is beyond the scope of this initial assignment, I think it would be interesting to add additional columns of data containing the "seed" rankings of the favorite team and underdog team in each matchup. This would allow me to analyze the perfomance of different seed groupings to determine which matchups might be more favorable for particular seed matchups. However, acquisition of this data would likely require significant research to the official tournament brackets from the years represented by the data which would take some significant manual data entry.
+
+- The original data set was obtained on this page: https://github.com/fivethirtyeight/data/tree/master/historical-ncaa-forecasts
+ 
+```{r}
+library(rvest)
+library(httr)
+library(tidyverse)
+```
+
+```{r}
+MMadness <- read_html("https://github.com/fivethirtyeight/data/blob/master/historical-ncaa-forecasts/historical-538-ncaa-tournament-model-results.csv")
+table <- MMadness %>% html_nodes("td")
+text <- table %>% html_text()
+Year <- text[seq(from=3, to=1772, by=7)]
+Round <- text[seq(from=4,to=1772, by=7)]
+Favorite <- text[seq(from=5, to=1772, by=7)]
+Underdog <- text[seq(from=6, to=1772, by=7)]
+FavWinProb <- text[seq(from=7, to=1772, by=7)]
+FavWinYes <- text[seq(from=8, to=1772, by=7)]
+
+
+TournamentUpsets <- tibble(
+  Year = Year,
+  Round = Round,
+  Favorite = Favorite,
+  Underdog = Underdog,
+  FavWinProb = FavWinProb,
+  FavWinYes = FavWinYes
+)
+
+write.csv(TournamentUpsets,file="~/Documents/Creighton Docs/Spring 2019/MTH 365/data sets/marchmadness.csv")
+
+```
+

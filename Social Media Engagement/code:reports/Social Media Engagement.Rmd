@@ -1,0 +1,156 @@
+---
+title: "Mini-Project 1: Managing a Social Media Brand"
+subtitle: "MTH 365: Intro to Data Science"
+author: "Mark May, Shelby Smith, and Andrew Walther"
+date: "Due February 8, 2019"
+output: html_document
+---
+
+In this lab you'll use data visualization tools to explore the performance metrics of posts published on a company's Facebook page. Twelve posts' performance metrics extracted from a cosmetic company's page. The data is available as `dataset_Facebook.csv`.
+
+- Source: S. Moro, P. Rita and B. Vala. "Predicting social media performance metrics and evaluation of the impact on brand building: A data mining approach". _Journal of Business Research_: 69 (9). 
+
+> Load the dataset into RStudio. How many social media posts are available?
+  
+  There are 500 posts available in the dataset.
+
+The variable names in this dataset are complicated! To simplify things, we'll rename the variables.
+
+```{r}
+facebook <- read.csv("C:/Users/markt/OneDrive - Creighton University/Creighton/Junior Year/Spring 2019/MTH 365/Projects/Project 1 - Social Media/dataset_Facebook.csv", sep=";")
+colnames(facebook) <- c('PageLikes', 'Type', 'Category', 'Month', 'Weekday', 'Hour', 'Paid', 'TotalReach', 'TotalImpressions', 'EngagedUsers', 'PostConsumers', 'PostConsumptions', 'ImpressionsByLikes', 'ReachByLikes', 'LikesEngaged', 'Comment', 'Like', 'Share', 'TotalInteractions')
+names(facebook)
+```
+
+Some of these performance metrics are not intuitive. Facebook performance metrics generally fall into two categories: _visualizations_ (posts loaded in users' browsers) and _interactions_ (clicks on posts).
+
+Use this data to answer the following research questions. For each question, you should produce _at least one data visualization_, with appropriate axis and legend labels. Each data visualization should be accompanied by a paragraph describing the insights to be gained. 
+
+-------
+```{r}
+library(tidyverse)
+library(ggplot2)
+```
+
+> 1. What type of post engages this company's Facebook followers the most?
+
+```{r}
+ggplot(facebook, aes(x=Type, y=LikesEngaged)) + geom_boxplot(fill='firebrick') + labs(x='Post Type', y='Page Followers Engaged', title='Post Engagement Among Page Followers', subtitle='by Post Type') + coord_flip()
+```
+
+The above boxplots show how the page's followers engaged with different kinds of posts. "Engagement" in this context refers to a click anywhere within the post on screen. Links clearly generate the lowest engagement among followers of all four post types. Photos have the next lowest median engagement, and videos are higher. Photos, however, have a greater maximum engagement than videos do. The greatest engagement maximum, the greatest engagement medium, and the widest engagement range all belong to the status post type. The wide range means there is no guarantee that a status will engage the page's followers better than a video, certain photos, or even a link, but on average, a status is the type of post most likely to engage the company's followers.
+
+> 2. When is the ideal time for this company to post a photo to Facebook? When is the ideal time for this company to update their status on Facebook?
+
+```{r}
+photos <- facebook %>% filter(Type=='Photo')
+ggplot(photos, aes(x=Hour, y=TotalReach)) + geom_bar(stat='identity', fill='royalblue') + labs(x="Hour of Posting", y="Post Reach", title="Post Reach by Hour of Posting", subtitle="for Photos")
+ggplot(photos, aes(x=Hour, y=EngagedUsers)) + geom_bar(stat='identity', fill='springgreen4') + labs(x="Hour of Posting", y="Engaged Users", title="Engaged Users by Hour of Posting", subtitle="for Photos")
+```
+
+To answer this question, we must first ask: what is the goal of a Facebook post? Is the company attempting to maximize the reach of (i.e. the total number of users who see a given post) or the engagement with its posts? For photographs, we have plotted the hour-by-hour data on both variables (reach in blue, engagement in green), and the trend is nearly identical. Note that these times were recorded by a team working in France, so they are seven hours ahead of Central Standard Time. The best time to post a photo to maximize reach and engagement is 8:00 PM CST (03:00 on the plots). After that, the best time is 3:00 AM CST (10:00 on the plots), followed by 6:00 AM CST (13:00 on the plots). Those three times are solidly higher than the other hours for the reach and engagement of photo posts.
+  
+  Having analyzed the photos, let's next analyze the statuses.
+  
+```{r}
+statuses <- facebook %>% filter(Type=='Status')
+ggplot(statuses, aes(x=Hour, y=TotalReach)) + geom_bar(stat='identity', fill='royalblue') + labs(x="Hour of Posting", y="Post Reach", title="Post Reach by Hour of Posting", subtitle="for Statuses")
+ggplot(statuses, aes(x=Hour, y=EngagedUsers)) + geom_bar(stat='identity', fill='springgreen4') + labs(x="Hour of Posting", y="Engaged Users", title="Engaged Users by Hour of Posting", subtitle="for Statuses")
+```
+
+Again, we have graphed reach in blue and engagement in green. Once again, the trends for reach and engagement are very similar. The best time to post a status is 3:00 AM CST (10:00 on the plots). The next best time to post a status is 8:00 PM CST (03:00 on the plots). Interestingly, we have no data recording a status update that happened after 15:00 Central European Standard Time (the time zone where the data were collected), as is shown below.
+
+```{r}
+max(statuses$Hour)
+```
+
+> 3. On average, how many clicks does each user make per post?
+
+```{r}
+facebook <- facebook %>% mutate(ClicksPerUser = PostConsumptions/TotalReach)
+mean(facebook$ClicksPerUser)
+```
+
+On average, a given Facebook user who sees a company post will click on that post around 0.21 times. We examine whether post type impacts the click rate in the plot below.
+
+```{r}
+clicks_by_type <- facebook %>% group_by(Type) %>%
+  summarize(mean_clicks = mean(ClicksPerUser))
+ggplot(clicks_by_type, aes(x=Type, mean_clicks)) + geom_bar(stat='identity', fill="darkorchid4") + labs(x="Post Type", y="Mean Clicks per User", title="Mean Clicks per User", subtitle="by Post Type") 
+```
+
+According to this plot, the post type most likely to generate engagement (i.e. clicks) is a photo, followed closely by a status. Videos lag behind, and links are extremely unlikely to generate clicks, with an average of less than 0.05 clicks per link.
+
+> 4. On average, how many times does a user see each post?
+
+```{r}
+facebook <- facebook %>% 
+  mutate(ViewsPerUser = TotalImpressions/TotalReach)
+mean(facebook$ViewsPerUser)
+```
+
+A given user who sees a company post once will see it an average of 1.87 times. We examine whether post type impacts repeat viewing habits in the plot below.
+
+```{r}
+views_by_type <- facebook %>% group_by(Type) %>%
+  summarize(mean_views = mean(ViewsPerUser))
+ggplot(views_by_type, aes(x=Type, y=mean_views)) + geom_bar(stat='identity', fill='deeppink4') + labs(x="Post Type", y="Mean Views per User", title="Mean Views per User", subtitle="by Post Type") 
+```
+
+It appears from this plot that post type has little effect on how often a given user our post has reached sees that post. Videos seem to generate the most views, photos and statuses are extremely close (photos are slightly ahead), and links are lagging a bit further behind. However, all of these values are within 0.05 views per user per post, so these variations do not seem to be significant.
+
+> 5. How are shares and likes related? Does this depend on the type of post?
+
+```{r}
+facebook %>% select(Type, Like, Share) %>%
+  arrange(desc(Like)) %>% head(5)
+```
+
+Before we build plots to answer this question, we must note that one photo generated vastly more likes and more shares than any other post. It completely ruined the scale of our plots, so we have left it out of them. It follows the same trends we describe using the plots below.
+
+```{r}
+facebook %>% filter(Like <= 2000) %>% filter(Like != "NA") %>%
+  filter(Share != "NA") %>%
+ggplot(aes(x=Like, y=Share)) + geom_point(shape=1, aes(col=Type)) + facet_wrap(~Type,nrow=2) + scale_color_brewer(palette="Set1") + labs(x="Likes", y="Shares", title="Likes vs Shares", col="Post Type")
+```
+
+As is clear from these plots, likes and shares covary, displaying positive correlation for all post types. Because of the sample size of the photo category, photos have the largest spread in likes and shares, including the maximum values for each across the whole dataset. Links have the lowest maximum number of likes and shares, another example of the consistent inadequacy of links compared to other post types. Statuses and videos have smaller ranges of likes and shares than photos do.
+
+> 6. Do posts that reach a wider audience (more users) tend to have more interactions? Comments? Shares? Likes?
+
+```{r}
+ggplot(facebook, aes(x=TotalReach, y=TotalInteractions))+geom_point(shape=1,col="slateblue2") +xlab('Audience')+ylab('Total Interactions')+ggtitle('Interactions Based on Size of Audience Reached')
+
+ggplot(facebook, aes(x=TotalReach,y=Comment))+geom_point(shape=1, col="palevioletred2")+xlab('Audience')+ylab('Comments')+ggtitle('Comments Based on Size of Audience Reached')
+
+ggplot(facebook, aes(x=TotalReach, y=Share))+geom_point(shape=1, col="springgreen4")+xlab('Audience')+ylab('Shares')+ggtitle('Shares Based on Size of Audience Reached')
+
+ggplot(facebook, aes(x=TotalReach, y=Like))+geom_point(shape=1, col="goldenrod")+xlab('Audience')+ylab('Likes')+ggtitle('Likes Based on Size of Audience Reached')
+
+```
+
+In the graphs obtained above, the first plots the number of interactions a post has against the size of the Audience that it reaches. We can see a sliht, but fairly consistent positive linear correlation, with one significant outlier. When evaluating a post's level of interaction by Shares and Comments, we can see that the data does not have any distinct positive correlation. The majority of the posts received less than 200 shares, despite the size of the audience reached. Finally, when evaluating a post's interaction by its Likes, we see a slight positive linear correlation within the data. The result is extremely similar to that of the overall interaction response plot, as the majority of a post's interaction is by likes.
+
+> 7. Do photos, links, or status updates reach a wider audience? What type of posts reach a _more engaged_ audience?
+
+```{r}
+ggplot(facebook, aes(x=Type, y=TotalReach, fill=Type))+geom_violin(fill="sienna2")+xlab('Type of Post')+ylab('Total Audience Reached')+ggtitle('Audience Reached by Type of Post') + coord_flip()
+```
+
+Based on the obtained plot of the size of audience reached based on the type of post made on Facebook, it is clear that a Photo has the most variability in the sizes of the audiences that it reaches. A status alone has the least varibility. Overall, a video has the majority of its density at a higher total audience reached than the other three types of posts. 
+
+```{r}
+ggplot(facebook, aes(x=Type, y=EngagedUsers, fill=Type))+geom_violin(fill="steelblue3")+xlab('Type of Post')+ylab('Number of Engaged Users')+ggtitle('Engaged Users Reached by Type of Post') + coord_flip()
+```
+
+Similar to the plot comparing the type of post to how many individuals it reached, this plot looks a which post reaches a more engaged audience. The Photo type of post has, once again, the most variable response as to the number of engaged users. A link post has significanly less engaged users than the other three types of posts. Finally, a status and a video have very similar response by engaged users and have the most of the four types. A status post has more variability, however the middle density of the two spreads are very similar. 
+
+-------
+
+Your submissions will be assessed on:
+
+1. Quality of the data visualizations (5 pts. per question).
+2. Quality of your written responses (3 pt. per question).
+3. Code formatting: consistency, readability, etc. (2 pts. per question).
+
+Total points possible: 70

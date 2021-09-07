@@ -1,0 +1,487 @@
+---
+title: "MTH 362: Final Project"
+subtitle: "NFL Big Data Bowl: Analysis of NFL Next Gen Stats to predict yardage gained"
+author: "Mark May and Andrew Walther"
+date: "5/1/2020"
+output: html_document
+toc: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r, warning=FALSE, message=FALSE,echo=FALSE}
+set.seed(366)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(caret)
+library(mlbench)
+library(factoextra)
+library(keras)
+library(tensorflow)
+```
+
+## Introduction
+
+In our preliminary project proposal, we detailed a plan to carry out an investigation on the connections between various Next Gen NFL statisticss and the the projected yardage gained by a runner on a given play in a football game. We are interested learning about how situational factors in a football game affect the number of yards that a runner will gain. In particular, we are interested in how the down, distance, and game score affect yardage gained as well as how personnel on the field, formations, and the number of defenders close to the line of scrimmage affect yardage. In our continued analysis, we will revisit some of the exploratory data analysis we began with to develop our reseach questions and then we will work on building appropriate machine learning models to predict yards gained on football plays. Given the unpredictable nature of football games, our preliminary models were only able to explain a maximum of 2% of the variation in the data we are working with. With our final analysis, we aim to make significant improvements on that measure while working with models that are relatively easy to understand.
+
+The dataset utilized in the following analysis is the NFL Big Data Bowl dataset via Kaggle. It contains over 682,000 observations of 49 variables to summarize the situation and results of every rushing play from NFL games from the 2016 through 2018 seasons. Do to the large number of observations in the dataset, we will work on appropriate methods to consolidate the data into a more manageable size without losing a significant amount of information held in the data. The dataset involves Next Gen Stats tracking data for running plays and was used in a competition where participants were tasks with buidling a machine learning model to predict the yardage gained on a particular play. The dataset we used can be found at the following link: https://www.kaggle.com/c/nfl-big-data-bowl-2020/data.
+
+Provided below is a data dictionary for all of the original variables in the NFL Big Data Bowl Dataset as well as additional variables that we created for our analysis.
+
+Variable | Description
+--- | ---
+`GameId` | unique game identifier
+`PlayId` | unique play identifier
+`Team` | home or away
+`x` | player position on long axis of field
+`Y` | player position on short axis of field
+`S` | speed in yards per second
+`A` | acceleration in yards per second^2
+`Dis` | distance traveled from prior time point, in yards
+`Orientation` | orientation of player (degrees)
+`Dir` | angle of player motion (degrees)
+`NflId` | a unique identifier of the player
+`DisplayName` | player's name
+`JerseyNumber` | jersey number
+`Season` | year of the season
+`YardLine` | the yard line of the line of scrimmage
+`Quarter` | game quarter (1-5, 5 is overtime)
+`GameClock` | time on the game clock
+`PossessionTeam` | team with possession
+`Down` | current down (1-4)
+`Distance` | yards to go for a first down
+`FieldPosition` | side of field the play is happening on
+`HomeScoreBeforePlay` | home team score before the play started
+`VisitorScoreBeforePlay` | visitor team score before the play started
+`NflIdRusher` | NflId of the rushing player
+`OffenseFormation` | offense formation
+`OffensePersonnel` | offensive team positional grouping
+`DefendersInTheBox` | number of defenders lined up near the line of scrimmage, spanning the width of the offensive line
+`DefensePersonnel` | defensive team positional grouping
+`PlayDirection` | direction the play is headed (left/right)
+`TimeHandoff` | UTC time of the handoff
+`TimeSnap` | UTC time of the snap
+`Yards` | the yardage gained on the play
+`PlayerHeight` | player height (ft-in)
+`PlayerWeight` | player weight (lbs)
+`PlayerBirthDate` | birthdate (mm/dd/yyyy)
+`PlayerCollegeName` | where the player attended college
+`Position` | the player's position
+`HomeTeamAbbr` | home team abbreviation
+`VisitorTeamAbbr` | visitor team abbreviation
+`Week` | week into the season
+`Stadium` | stadium where the game is being played
+`Location` | city where the game is being played
+`StadiumType` | description of the stadium environment
+`Turf` | description of field surface
+`GameWeather` | description of game weather
+`Temperature` | temperature (degree F)
+`Humidity` | humidity
+`Windspeed` | wind speed in miles per hour
+`WindDirection` | wind direction
+`IsBallCarrier` | TRUE or FALSE for ball carrier on a particular play
+`TeamOnOffense` | abbreviation for offensive team
+`IsOnOffense` | TRUE or FALSE for player on offensive team
+`YardsFromOwnGoal` | distance from own teams endzone (yards)
+`TotalScore` | combined score of home team and visitor team prior to play
+
+
+## Data Cleaning
+
+For this project, we will be using comprehensive NFL player tracking data from rushing plays to assess certain bits of conventional football wisdom. In this document, we will detail which specific questions we will ask, along with our plan for answering them.
+
+This data has an obvious problem to start with. It began with 49 variables and over 682,000 observations. This dataset is immense. Furthermore, it is messy and difficult to work with. Before we can even begin, we need to do some cleaning of this dataset. Using techniques published by Kaggle user Michael Lopez (https://www.kaggle.com/statsbymichaellopez/nfl-tracking-wrangling-voronoi-and-sonars), we can perform several tidying operations.
+
+First, we will add a dummy variable to determine which way a play is going on the field (which will be helpful later) and a variable telling us whether a particular player is the ballcarrier for a given play. We also had to standardize the team abbreviations used in different variables. With these basic additions complete, we wrote a new CSV because this all took a painfully long time to run and we didn't want to do it again. The code used to make it is shown below.
+
+
+```{r, eval=FALSE, echo=TRUE}
+train <- read.csv("~/OneDrive - Creighton University/Creighton/Senior Year/Spring 2020/MTH 366/Project/train.csv")
+HomeTeamAbbr_1 <- factor(levels=c(
+  "ARZ","ATL","BLT","BUF","CAR","CHI","CIN","CLV","DAL","DEN","DET","GB","HST","IND","JAX","KC",
+  "LA","LAC","MIA","MIN","NE","NO","NYG","NYJ","OAK","PHI","PIT","SEA","SF","TB","TEN","WAS"))
+for(i in 1:nrow(train)){
+  if(train$HomeTeamAbbr[i]=="ARI"){
+      HomeTeamAbbr_1[i] <- "ARZ"
+  }else if(train$HomeTeamAbbr[i]=="BAL"){
+    HomeTeamAbbr_1[i] <- "BLT"
+  }else if(train$HomeTeamAbbr[i]=="CLE"){
+    HomeTeamAbbr_1[i] <- "CLV"
+  }else if(train$HomeTeamAbbr[i]=="HOU"){
+    HomeTeamAbbr_1[i] <- "HST"
+  }else{
+    HomeTeamAbbr_1[i] <- train$HomeTeamAbbr[i]
+  }
+}
+
+VisitorTeamAbbr_1 <- factor(levels=c(
+  "ARZ","ATL","BLT","BUF","CAR","CHI","CIN","CLV","DAL","DEN","DET","GB","HST","IND","JAX","KC",
+  "LA","LAC","MIA","MIN","NE","NO","NYG","NYJ","OAK","PHI","PIT","SEA","SF","TB","TEN","WAS"))
+for(i in 1:nrow(train)){
+  if(train$VisitorTeamAbbr[i]=="ARI"){
+      VisitorTeamAbbr_1[i] <- "ARZ"
+  }else if(train$VisitorTeamAbbr[i]=="BAL"){
+    VisitorTeamAbbr_1[i] <- "BLT"
+  }else if(train$VisitorTeamAbbr[i]=="CLE"){
+    VisitorTeamAbbr_1[i] <- "CLV"
+  }else if(train$VisitorTeamAbbr[i]=="HOU"){
+    VisitorTeamAbbr_1[i] <- "HST"
+  }else{
+    VisitorTeamAbbr_1[i] <- train$VisitorTeamAbbr[i]
+  }
+}
+
+train <- train %>% 
+    mutate(ToLeft = PlayDirection == "left", 
+           IsBallCarrier = NflId == NflIdRusher)
+train1 <- cbind(train,HomeTeamAbbr_1,VisitorTeamAbbr_1)
+
+write.csv(train1, "~/OneDrive - Creighton University/Creighton/Senior Year/Spring 2020/MTH 366/Project/NFL_prelim_clean.csv")
+```
+
+We can now load the new dataset and get down to business.
+
+```{r, eval=FALSE, echo=TRUE}
+#Load the new data set
+NFL_prelim_clean <- read.csv("~/OneDrive - Creighton University/Creighton/Senior Year/Spring 2020/MTH 366/Project/NFL_prelim_clean.csv")
+NFL_pre <- NFL_prelim_clean %>% select(-c(X.1, HomeTeamAbbr, VisitorTeamAbbr))
+```
+
+One problem that analysis of this dataset gave us is that the positioning data was all over the place, and it was hard to control for this in early attempts at analysis. Lopez's code provided a method to indicate which team was on offense (a more useful piece of information than just home or away), and a standard X and Y coordinate that did not change based on who had the ball or which direction it was moving.
+
+```{r, eval=FALSE, echo=TRUE}
+NFL_pre1 <- NFL_pre %>% 
+  mutate(TeamOnOffense = ifelse(PossessionTeam == HomeTeamAbbr_1, "home", "away"),  
+         IsOnOffense = Team == TeamOnOffense,  ## Is player on offense?
+         YardsFromOwnGoal = ifelse(as.character(FieldPosition) == PossessionTeam, 
+                       YardLine, 50 + (50-YardLine)), 
+         YardsFromOwnGoal = ifelse(YardLine == 50, 50, YardsFromOwnGoal),  
+         X_std = ifelse(ToLeft, 120-X, X) - 10, ## Standardizes X
+         Y_std = ifelse(ToLeft, 160/3-Y, Y))    ## Standardized Y
+```
+
+Finally, it is useful to create a standard direction for where a player is moving, which we can again do using the code from Lopez.
+
+```{r, eval=FALSE, echo=TRUE}
+NFL_pre1 <- NFL_pre1 %>% 
+  mutate(Dir_std_1 = ifelse(ToLeft & Dir < 90, Dir + 360, Dir), 
+         Dir_std_1 = ifelse(!ToLeft & Dir > 270, Dir - 360, Dir_std_1))
+NFL_pre1 <- NFL_pre1 %>% 
+  mutate(Dir_std_2 = ifelse(ToLeft, Dir_std_1 - 180, Dir_std_1))
+```
+
+The `Dir_std_1` variable standardizes all directions within a given team, and the `Dir_std_2` variable standardizes direction for every player on the field, where 0 degrees is to the left side of the offense, 90 is in the offense's target direction, 180 degrees is to the right side of the offense, and 270 degrees is in the defense's target direction. 
+
+With all of this complete, it is useful for us to write another CSV.
+
+```{r}
+#write.csv(NFL_pre1, "~/OneDrive - Creighton University/Creighton/Senior Year/Spring 2020/MTH 366/Project/NFL_full_tidy.csv")
+```
+
+```{r}
+#load dataset to Andrew's Computer
+#NFL <- read.csv("~/Documents/Creighton Docs/Spring 2020/MTH 366/project/NFL_full_tidy-Mark’s MacBook Pro.csv")
+
+#select only observations where the player is a running back
+#NFL_RB <- NFL %>% filter(Position=='RB',IsBallCarrier==TRUE) %>% mutate(TotalScore = HomeScoreBeforePlay+VisitorScoreBeforePlay)
+```
+
+Filtering out all observations aside from those where we have running backs who are the ball carrier gets us down to a more manageable 28886 observations.
+
+```{r, echo = FALSE}
+#Load the dataset to Mark's Computer
+#drop the index variable
+NFL <- read.csv("~/OneDrive - Creighton University/Creighton/Senior Year/Spring 2020/MTH 366/Project/NFL_full_tidy-Mark’s MacBook Pro.csv")
+NFL <- NFL %>% select(-X.1)
+NFL_RB <- NFL %>% filter(Position=='RB',IsBallCarrier==TRUE) %>% mutate(TotalScore = HomeScoreBeforePlay+VisitorScoreBeforePlay)
+```
+
+## Methods
+
+### Preliminary Analysis
+
+We'll briefly revisit some our our initial thoughts regarding the relationships between the 
+NFL game data before engaging in a more robust analysis to build our predictive models. To reiterate, we are interested in what determines the amount of yardage that a runner will gain on a given play in a football game.
+
+To reiterate, the two primary questions of interest in this study were:
+
+1) Can we predict the number of yards a runner will gain based on the current situational factors such as the down, distance to go, and total score?
+
+2) Does "stacking the box", i.e. using heavy formations and lots of blockers, lead to greater success on runs or are defenses more likely to stuff a runner at the line of scrimmage?
+
+We believe that down, distance, and game score may have varying effects on how much yardage is gained. While football is an unpredictable game and runners typically gain between 2 and 4 yards on an average run, the best running backs are capable of breaking away and scoring a touchdown on any play.
+
+Let's begin by taking a look at some of our EDA plots that we originally began our analysis with. These visualizations help to understand the makeup of the dataset and give possible insight to how we can address the research questions that we laid out. A good place to start out as well is to check on the measures of central tendency like the mean and median of yards gained for all plays.
+
+```{r, echo = FALSE}
+#mean, median, and standard deviation of yards gained by running backs
+mean(NFL_RB$Yards)
+median(NFL_RB$Yards)
+sd(NFL_RB$Yards)
+```
+
+Here, we see that the average number of yards gained by running backs across all plays is about 4.2 yards and the median is 3 yards. Additionally, the standard deviation is about 6.4 yards. Therefore, on a typical play, we'll expect a runner to gain about 3 or 4 yards, but we also know there is quite a bit of variability and there is always a decent chance that a runner can get stopped behind the line of scrimmage for a loss or break off a huge gain and possibly score a touch down.
+
+### Principal Components Analysis
+
+As a part of our EDA, we'll attempt to find out if any of the factors in our data are more influential in the data than others and what factors might be related to each other before we move into looking at visualizations of the relationships between specific factors.
+
+```{r, echo = FALSE}
+#set variables as numeric for PCA
+NFL_pca <- NFL_RB
+for(i in 1:59){
+  NFL_pca[,i] <- as.numeric(NFL_pca[,i])
+}
+# Remove unnecessary variables
+NFL_pca2 <- NFL_pca %>% select(-c('Team','GameId','PlayId','NflId','DisplayName','NflIdRusher','IsBallCarrier','HomeTeamAbbr_1',
+                                  'VisitorTeamAbbr_1','IsOnOffense','X_std','Y_std','Dir_std_1','Dir_std_2','TimeHandoff',
+                                  'TimeSnap','ToLeft','PlayDirection','TeamOnOffense','Position'))
+NFL_pca2 <- NFL_pca2[complete.cases(NFL_pca2), ]
+```
+
+```{r, echo = FALSE}
+#pca function, centered & scaled
+NFL_pca_model <- prcomp(NFL_pca2, center=TRUE, scale=TRUE)
+summary(NFL_pca_model)
+```
+
+The first principal component accounts for about 8% of the variability in the data followed by 6% from PC2, 5% from PC3, 5% from PC4, 4.5% from PC5, and 4% from PC6. The first 6 principal components are only able to explain about 33% of the variability in the NFL data.
+
+```{r, echo = FALSE}
+#plot scree plot
+fviz_eig(NFL_pca_model,main='Scree plot: NFL Rushing Yards', addlabels=TRUE)
+```
+
+The scree plot has an elbow at the 6th principal compoenent so after the first six principal components, we aren't able to explain significantly more variability by adding an additional principal compoenent. However, we aren't able to explain 50% of the variability in the data until we have 11 PCs. It also requires 21 principal components to explain 75% of the variability and 29 principal components to explain 90% of the variability in the data. This is a clear indication that there is a significant amount of variability in this dataset that is difficult to account for.
+
+```{r, echo = FALSE}
+#loadings for PC1 and PC2
+NFL_pca_model$rotation[,1:2]
+#direction plot for PC1 and PC2
+fviz_pca_var(NFL_pca_model, col.var='contrib')
+```
+
+A two-dimensional plot of the first and second principal components shows that `DefendersInTheBox`, `OffensePersonnel`, and `DefensePersonnel` all have fairly strong positive contributions to PC2. `Quarter`, `HomeScoreBeforePlay`, `VisitorScoreBeforePlay`, and `TotalScore` all have strong positive contributions to PC1. Additionally, `OffensiveFormation` and `Distance` also have negative contributions to PC2.
+
+Our primary takeaway from PCA is that a large number of principal components were required to explain a majority of the variability in the data. Due to this, we will likely need to utilize methods like deep learning neural networks in an effort to find more minute underlying patterns in the data in order to account for more variation in the data and make accurate predictions for the yards gained on a play.
+
+### Does rushing performance change based on if the Home or Road team is winning?
+
+```{r, echo = FALSE}
+Home_win <- NFL_RB %>% filter(HomeScoreBeforePlay > VisitorScoreBeforePlay)
+Home_win %>% ggplot(aes(Yards)) + geom_density(aes(color=Team)) + geom_vline(aes(xintercept = median(Yards))) + labs(title='Rushing performance when the home team is winning')
+
+Away_win <- NFL_RB %>% filter(HomeScoreBeforePlay < VisitorScoreBeforePlay)
+Away_win %>% ggplot(aes(Yards)) + geom_density(aes(color=Team)) + geom_vline(aes(xintercept = median(Yards))) + labs(title='Rushing performance when the road team is winning')
+```
+
+Regardless of whether or not the home or road team is winning at a particular point in a game, it appears as if neither team has any advantage interms of rushing performance. The vertical line is representative of the median value for yards gained.
+
+### Does Distance to go for a first down affect yardage gained?
+
+```{r, echo = FALSE}
+NFL_RB %>% ggplot(aes(x=Distance,y=Yards)) + geom_point(alpha = 0.5) + labs(title='Yard gained vs. Distance to go for a first down')
+```
+
+It looks like there might be a slight downward trend in yards gained as the distance to gain for a first down increases. This is clearly broken up at the Distance value of 10. This isn't surprising though since every time a team gains a first down, they get reset to "1st & 10" and they must gain another 10 yards for a new first down. Therefore, it makes sense that the most plays in a game come with 10 yards to go for a first down and we'll see the most variation in the result of a play when it starts with 10 yards to go for a first down. Additionally, this looks like an example of heterscedasticity where the is non-constant variance over different values of "distance". It definitely looks like positive yardage gained values converge to around zero as "distance" increases, but the distribution takes on a bit of a wedge shape since runners can be stopped for negative yardage plays, which appears to happen quite a bit when "distance" is between 0 and 10 yards to go. This might be misleading though since we don't know much about where the density of the plays at each distance value are. Grouping by the means might help see more of a trend with varying distances.
+
+```{r, echo = FALSE}
+distance <- NFL_RB %>% group_by(Distance) %>% summarize(avg.Yards = mean(Yards,na.rm=TRUE))
+distance
+ggplot(distance, aes(x=Distance, y=avg.Yards)) + geom_point() + 
+  labs(x="Distance to gain", y="Average Yards per Run", title="Average yards per carry by distance for a first down") + xlim(c(0,30))
+```
+
+However, if we group the plays that occur at each particular distance required for a first down, see that the average yards gained actually increases with distance to gain up to distances greater than 28 yards needed for a first down. This makes more sense that what we thought was apparent above. This is because a defending team is trying to prevent scores and first downs, so they won't care if a runner gains 7 yards when they started out needing about 30 yards for a first down. On the other hand, when the offense only needs 1 or 2 yards for a first down, the defense will be much more inclined to stop the runner as soon as possible so we see an average of only about 3 yards at these short distances.
+
+### Does the current down affect yardage gained?
+
+```{r, echo = FALSE}
+NFL_RB %>% ggplot(aes(x=as.factor(Down),y=Yards,color=as.factor(Down))) + geom_violin() + labs(x='Down',title='Yard gained vs. Down') + stat_summary(fun.y=mean, geom="point", shape=23, size=2)
+```
+
+We know that in football there are only four possible downs that a play can take place on. The downs either reset to 1st down after the offensive team gains the required yardage (typically 10 yards) or the offense will typically punt the ball to the opposite team who then starts their offensive possession on first down. It looks like the yardage gained by a runner definitely sees a decrease as the down increases from first to fourth down. The maximum number of yards gained (and variability) also decreases as the down increases. Regardless, we still see the majority of plays on all downs having an outcome between 0 and 5 yards. Note also that situational factors could account for the decreased maximum on fourth downs. A rushing play in a fourth down situation is likely to be a dive or a QB sneak, plays that aren't meant to break off huge runs, just get enough for a first down or a touchdown. However, the Kaggle task was to predict yards gained, not success.
+
+### Do different offensive formations give an advantage for gaining more rushing yards?
+
+```{r, echo = FALSE}
+NFL_RB %>% ggplot(aes(Yards)) + geom_density() + facet_wrap(. ~ OffenseFormation) + labs(title='Density of yards gained sorted by offensive formation')
+```
+
+When we separate the running plays by offensive formation, it still appears as if there is no advantage to run a particular formation in order to gain more yards. The upper left density plot shows the distribution of yards gained on plays that didn't have the formation specified. If any formation shows that a runner gains more yards on average than the median of about 3, it appears to be the wildcat formation. However, this formation is rarely used, so it makes sense that the density plot would show some small peaks beyond the main peak at 3 yards.
+
+### Does a runner's weight have any influence on yards gained?
+
+```{r, echo = FALSE}
+NFL_RB %>% ggplot(aes(x=PlayerWeight,y=Yards)) + geom_point(alpha = 0.5) + labs(title='Yard gained vs. Weight of runner (pounds)')
+```
+
+It doesn't seem like a player's weight has any influence on how many yards they will gain.
+
+### Does the current total score of the game affect how many yards a runner will gain?
+
+```{r, echo = FALSE}
+NFL_RB %>% ggplot(aes(x=TotalScore,y=Yards,color=as.factor(Quarter))) + geom_point(alpha = 0.5, pch=1) + labs(title='Yard gained vs. Total game score')
+```
+
+It does look like runners gain fewer yards on average as the score of the game rises. However, the "dense" part of the distibution, where a runner gains between about 0 and 15 yards doesn't seem to vary much until the game score rises about 60 points. Also notice that each play is color coded by the game quarter that the play took place in. Notice that when the game score is 60 or higher, nearly all of the plays occurred in the 4th quarter or overtime.
+
+```{r, echo = FALSE}
+score <- NFL_RB %>% group_by(TotalScore) %>% summarize(avg.Yards = mean(Yards,na.rm=TRUE))
+score
+ggplot(score, aes(x=TotalScore, y=avg.Yards)) + geom_point() + 
+  labs(x="Total game score", y="Average Yards per Run", title="Average yards per carry by total game score")
+```
+
+When we group by each value of the total score, it is apparent that the average number of yards gained hovers between 4 and 5 yards up until the total score rises above 60 points. When the game score rises above 60, we see the average number of yards gained begin to decrease. It is possible that this can be explained by the game situation. If a run is happening late in a high-scoring game, it is likely because one team is comfortably in front of the other and is trying to run the clock out. In these situations, a big run is not really the point, and teams often just slam the ball into the line.
+
+### How does distance from the end zone relate to rushing gains?
+
+```{r, echo = FALSE}
+NFL_RB %>% ggplot(aes(x=YardsFromOwnGoal,y=Yards)) + geom_point() + labs(title='Yard gained vs. Distance from own end zone',x='Distance to own End Zone')
+```
+
+There really doesn't seem to be any relationship between the distance from the end zone and how many yards a rusher gains. It is interesting to note that there is a diagnonal line of observations that decreases as the distance from a team's own end zone increases. This is simply the maximum number of yards that can be gained at a certain field position and the distances that have an observation on this diagonal line represent plays where a runner scored a touchdown, i.e. when a team started a play on their own 25 yard line, the runner gained 75 yards to score a touchdown in the oppositve end zone.
+
+### Are there any trends in the average amount of yards gained in each week of the season?
+
+```{r, echo = FALSE}
+yards_week <- NFL_RB %>% group_by(Week) %>% summarize(avg.yard = mean(Yards,na.rm=TRUE))
+yards_week
+ggplot(yards_week, aes(x=Week, y=avg.yard,fill=as.factor(Week))) + geom_col() + 
+  labs(x="Week of Season", y="Average Yards per Run", title="Average yards per carry by week") + geom_hline(aes(yintercept = mean(NFL_RB$Yards)))
+```
+
+There definitely isn't any significant trend on the average yardage gained by week. We can see that all of weeks one through seventeen are fairly close to the horizontal black line that represents the average number of yards gained per play overall 17 weeks. It does look like weeks 16 and 17 are a bit lower than average compared to the rest of the weeks (aside from week 7). This may be in part to teams resting their starting players for the playoffs near the end of the regular season and teams that have been eliminated from playoff contention no longer feel the need to work as hard to win games. However, this display seems to tell us that there isn't much interesting information that we can gather on a week by week basis.
+
+### Prediction of Yardage based on Down, Distance, and Game Score
+
+We'll work on this analysis with the reduced form of the full NFL dataset, inclusing only observations of players that are a running back AND the ball carrier for the current play. The dataset formatting (NFL_RB) was performed in the prior data cleaning section and it reduced the original dataset of 682154 observations down to a more manageable 28886 observations. 
+
+We noticed in the prior EDA that the current down, distance to gain for a first down, and total game score have a possible negative relationship with yards gained as the explanatory variable increases. For the down, it makes sense that we would see a negative relationship between down and yards, especially on 4th down. When a team elects to run the ball on 4th down, they are often close to the line to gain a first down and only need a yard or two to reset the downs. Thus, the runner is only attempting to reach the line to gain for a first down. Additionally, we see that as the distance necessary to gain a first down increases, the expected yardage gained increases as well. Finally, we noticed that once the game score increased above 60 points, the average number of yards gained on each play started to decrease. This could be helpful information to take advantage of, but it would only in instances where the game score is greater than 60 points. Fortunately, NFL games frequently have combined scores well above 60 points, so we might be able to utilize this factor in our analysis.
+
+### Analysis 
+
+#### Regression Model
+
+First, lets consider a multiple linear regression model with `Yards` as the response variable and `Down`, `Distance`, `TotalScore`, and `YardsFromOwnGoal` as explanatory variables. We'll see if any of these factors are significant to making predictions for yards gained, but it is likely we'll have to use more powerful techniques due to the high level of variability in our data.
+
+```{r, echo = FALSE}
+model_lm_1 <- lm(Yards~Down+Distance+TotalScore+YardsFromOwnGoal, data=NFL_RB)
+summary(model_lm_1)
+```
+
+Here, we see that a linear regression model with `Down`, `Distance`, `TotalScore`, and `YardsFromOwnGoal` as inputs to predict `Yards` has an R-squared value of only 0.01112. This value indicates that the regression model is capable of explaining just over 1% of the variation in the data. Clearly, this is not helpful for the task we are trying to accomplish. We also notice that `Down`, `Distance`, and `YardsFromOwnGoal` are significant ($p<0.05$) toward predicting yards gained, but `TotalScore` is not significant. We previously found that yards gained only appeared to change when the total score of a game increased above 60 points. Thus, it wasn't very helpful for making predictions with the linear regression model.
+
+Our linear regression model wasn't very effective at predicting how the yards gained on a given play so we'll have to address this prediction task with a more involved method. This makes sense since the EDA plots clearly showed that there is a significant amount of variation in the data when we look at how yardage is related to down, distance, game, score, and distance from the endzone. It is apparent that the linear regression model simply isn't able to handle the variation because there aren't strong linear relationships in the data. Since we're attempting to classify each particular observation (rushing play) as a given number of yards gained, though the regression model is able to give a precise distance beyond just and integer value of yards, we obviously need to use a method suitable for this classification task. 
+
+#### Deep learning neural network
+
+We'll now build a deep learning neural network (DNN) to take advantage of more computing power in an attempt to extract more information out of the highly variable data that we're working with. Though the neural network is essentially a "black box" method since the inner workings of the network are very complicated, the output classification predictions of yards on each play are clear and we can easily determine how accurate the DNN predictions are. We hope that this method can perform far better than the miniscule 1% of variability in the data that we are currently capable of accounting for with the factors of interest.
+
+```{r, echo = FALSE}
+#displays unique values for yards
+sort(unique(NFL_RB$Yards))
+length(unique(NFL_RB$Yards))
+```
+
+There are 100 different unique values of the outcome for `Yards` on a rushing play. The lowest recorded outcome of yards is -15 (sounds like they were running the wrong direction) and the highest recorded value is 100 yards (He must've been out of breath). We'll use this to set up a one-hot encoded matrix for our DNN.
+
+```{r, echo = FALSE}
+#define reduced dataset with offensive situational factors & yards
+NFL_DNN1 <- NFL_RB %>% select(c('Yards','Down','Distance','TotalScore','YardsFromOwnGoal','Quarter','HomeScoreBeforePlay','VisitorScoreBeforePlay'))
+#input matrix
+NFL_DNN1_x <- as.matrix(NFL_DNN1[,2:7])
+#output vector (yards)
+NFL_DNN1_y <- as.matrix(NFL_DNN1[,1])
+#class of inputs and outputs (matrix)
+class(NFL_DNN1_x)
+class(NFL_DNN1_y)
+#scale input matrix
+NFL_DNN1_x <- scale(NFL_DNN1_x, center=TRUE, scale=TRUE)
+```
+
+```{r, echo = FALSE}
+#Reclassifies output vector to a one-hot matrix with 100 entries
+NFL_DNN1_y <- to_categorical(NFL_DNN1_y,100)
+```
+
+```{r, echo = FALSE}
+#setup: model with 4 hidden layers, 100 output nodes, add batch normalization
+DNNmodel1 <- keras_model_sequential() %>% 
+    layer_dense(units = 256, input_shape = ncol(NFL_DNN1_x), activation='relu') %>% layer_batch_normalization() %>%
+    layer_dense(units = 256, activation='relu') %>% layer_batch_normalization() %>%
+    layer_dense(units = 128, activation='relu') %>% layer_batch_normalization() %>%
+    layer_dense(units = 128, activation='relu') %>% layer_batch_normalization() %>% 
+    layer_dense(units = 100, activation='softmax') %>% 
+    compile(loss='categorical_crossentropy', optimizer=optimizer_sgd(), metrics=c('accuracy'))
+```
+
+We'll set up our neural network using five layers of 256, 256, 128, 128, and 100 nodes, respectively. RELU will be used as the activation function for the hidden layers and softmax will be the activation function for the output layer since we are performing a classification task with 100 classes. Since we have 28,886 observations, we'll only use 10% of the observations for validation. Cross class entropy will be used as the loss function since the DNN is working on a categorical problem with many classes. Finally, we'll use 512 as the batch size so with our 28,886 observations, only 56 batches per epoch will be required.
+
+```{r,cache=TRUE, echo = FALSE}
+#train model 1, 25 epochs, 512 per batch, 10% split
+start <- Sys.time()
+fit1 <- DNNmodel1 %>% fit(x = NFL_DNN1_x, y = NFL_DNN1_y, epochs = 25, batch_size = 512, validation_split = 0.1,verbose=FALSE)
+fit1
+plot(fit1)
+summary(DNNmodel1)
+Sys.time() - start
+```
+
+The deep learning neural network making predictions for yards with `Down`, `Distance`, `TotalScore`, `YardsFromOwnGoal`, `Quarter`, `HomeScoreBeforePlay`, and `VisitorScoreBeforePlay` as input factors has 132,964 total parameters and achieved a training accuracy of 16.61% and validation accuracy of 12.08%. Additionally, the training loss was 2.94 and the validation loss was 3.017. Although we are nowhere near having a majority of accurate predictions, this is a significant improvement over the performance of the multiple linear regression model. We also understand that the NFL data has a high level of variance and there aren't any clear trends in the data so we are impressed with the DNNs ability to to reach the validation accuracy level that it did, especially because we only accounted for classifications that were completely correct and didn't allow for regression predictions to be made where a region of error could be allowed.
+
+### Prediction of Yardage based on Formations and Personnel
+
+
+### Analysis
+
+Let's start with a quick linear model. Based on our EDA, this will not be a terribly successful run, but we must know where to start.
+
+```{r, echo = FALSE}
+model_lm_2 <- lm(Yards~HomeScoreBeforePlay+VisitorScoreBeforePlay+
+                   DefendersInTheBox+OffensePersonnel+DefensePersonnel+OffenseFormation,
+                 data = NFL_RB)
+summary(model_lm_2)
+```
+
+Based on this model, the only variable even close to significant is `DefendersInTheBox`. However, because of the structure of the personnel variables, they may still be useful, they will just need to be approached by a more involved method. In order to effectively manage the mess of categorical variables involved, we feel that a tree-based method will be most effective for this particular analysis. In particular, we have implemented a bagged model below.
+
+```{r, cache=TRUE, echo = FALSE}
+#define reduced dataset with formation adn personnel information
+NFL_tree <- NFL_RB %>% select(c('Yards','DefendersInTheBox',
+                                'OffensePersonnel',"DefensePersonnel", "OffenseFormation"))
+NFL_tree <- NFL_tree[complete.cases(NFL_tree),]
+#define fitting parameters
+fitControl <- trainControl(method = "repeatedcv", 
+                           p = 0.8,
+                           repeats = 10
+)
+model_bag <- caret::train(
+  Yards~.,
+  data = NFL_tree,
+  method = "treebag",
+  trControl = fitControl
+)
+model_bag
+```
+
+With an overall correlation between predictions and actual yardage values of $R^2 = 0.000478$, I think we can rather confidently say that these variables do not contain enough information to accurately predict yardage outcomes. The fact that it took 30 minutes to run is not a mark in its favor either.
+
+## Conclusion 
+
+With the most robust predictive methods we are aware of, we were only able to make predictions on yardage that were about 15% accurate at best. In general, it seems as though earlier downs, earlier in the game, tend to lead to longer rushes, though only very slightly. It's hard to draw definitive conclusions about which variables matter because to get to that 15% accuracy on those predicitions, a complex neural network was required. We can draw some basic conclusions from the linear models about which variables matter, but since those linear models only explain about 1% of the variability of the data, they should not be taken too literally. While the neural network was complex, it was able to use situational data - down and distance, distance from the end zone, score data, and quarter - to improve prediction accuracy. Meanwhile, our question about the effect of formation and personnel remains frustratingly unanswered. The linear correlation between the model's predictions and the true `Yards` values was abysmal. It is possible that this means that formation and personnel have no impact on the success of a running play, but it is also possible that we did not successfully unlock the information contained in the data provided. I think there are two potentially strong options for a follow-up study on personnel and formation:
+
+1) Digging into the formation data to provide a "blockers" variable vs defenders in the box. Perhaps it is not the formation or the personnel but their combined effect, how the offense arrays its players to block defenders, that leads to rushing success. This was not implemented due to the considerable time and programming skill necessary to build a model that could properly account for all of these differences.
+
+2) Using the Michael Lopez programming to build Voronoi diagrams for the different plays. This is related to (1) but is likely more robust. By considering how much space an offense controls, a more accurate model can likely be built. This was not implemented because it was far beyond our programming ability in `R`.
+
+As is clear from this write-up, we had a hard time wrapping our arms around this dataset. With so many observations and so much variability that naturally came from the chaos of an NFL game, this was certainly an ambitious dataset to tackle. To even perform analysis, we ended up dropping most of the observations and considering only ball carrier data, which reduced our dataset from 682,000 observations to under 30,000. As useful as this was (it allowed us to perform any analysis at all), it may have cost us a lot of potentially useful information. Or those leftover 652,000 observations were just more variability that would have further cluttered our analysis. Without access to RAD Lab servers, it's difficult to say. 
+
+We have a few propositions for anyone brave enough to tackle this dataset after reading this report. First, we recommend trying to find some way to mine use out of positioning data. The best way we found to execute this was the Voronoi scheme created by Michael Lopez, though this was beyond our programming ability. Some sort of spatiotemporal model that could access the information contained in where the players were at any given time could potentially unlock a lot of this dataset. Second, we recommend finding a way to sort to the play level. The dataset we used trimmed things down to just ballcarriers, but every play had several observations (as this is the nature of tracking data). This meant that we had a fair number of repeats in our dataset. We were unable to find a good way to compress the data to just plays without dumping the majority of the information about a given play. If this were possible, it might unclutter things and allow simpler models to have a better chance at being fit successfully. Third, we recommend simplifying the classification task by grouping the yardage observations. Instead of 100 different possible categories with distinctions between them so fine that referees get it wrong sometimes, we recommend a scheme of categories such as "negative plays" (any play with `Yards` $< 0$), "short gains" (0-3 yards), "medium gains" (4-10 yards), and "big gains" (11+ yards). A scheme like this would make things much easier for the models trying to make classifications, and would likely yield much more information than what we tried to do here. 
+
+Ultimately, this dataset was a beast, and anyone hoping to analyze it should be prepared to wrestle with it.
+

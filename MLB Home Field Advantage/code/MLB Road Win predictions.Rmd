@@ -1,0 +1,231 @@
+---
+title: "MTH 366: Final Project"
+subtitle: "Analysis of Major Leage Baseball game statistics to predict Road Wins and Total Runs Scored"
+author: "Mark May and Andrew Walther"
+date: "12/6/2019"
+output: html_document
+---
+
+```{r, warning=FALSE, message=FALSE,echo=FALSE}
+library(tidyverse)
+library(MASS)
+library(mosaic)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+
+baseball <- read.csv("~/OneDrive - Creighton University/Creighton/Senior Year/MTH 362/Project/baseball_reference_2016_clean.csv")
+#baseball <- read.csv("~/Documents/Creighton Docs/Fall 2019/MTH 362/data sets/baseball_reference_2016_clean.csv")
+glimpse(baseball)
+```
+
+## Introduction
+
+In our preliminary project proposal, we detailed a plan to carry out an investigation on the connections between various baseball game statistics and details and the likelihood of a visiting winning a game along with the propensity for runs to be scored in a game. We indicated a particular interest in the non-player factors that affect a game along with overall team performance and its affect on the outcome of a game since the data presented is comprised of game totals for home and road teams without any separation among individual players. The research interests in this analysis are focused on evaluating the nature of so-called "Home Field Advantage" and the specific factors that determine the total combined score of a Major League Baseball competition. In our analysis, we will attempt to build models and identify the factors that are involved in determining whether the home or road team will win a game as well as the factors that determine how many combined runs are scored between the home and road teams. As a result of our analysis, we aim to develop simple, yet rigorous models that can accurately predict the success of a visiting team and the total score of a game without becoming overly complicated and difficult to understand. In addition, the analysis will also be performed solely on game data from the 2016 Major League Baseball regular season and post season.
+
+The dataset utilized in the following analysis is from Charlie Yaris via Kaggle. It contains 2,463 observations of 26 variables to summarize the results of every MLB game played during the 2016 season. Yaris works for the data science company Metis and he is currently attempting to determine the greatest baseball team of all time. A primary candidate for this title is the 2016 Chicago Cubs team, the World Series Champions from that season. In an effort to examine that season in more detail, Yaris scraped all of this data from the website https://www.baseball-reference.com/, an enormous repository of baseball data, with a tool called scrapy.
+
+Variable | Description
+--- | ---
+`attendance` | number of fans attending a game
+`away_team` | MLB team that was the visiting team in the game
+`away_team_errors` | number of errors committed by the visiting team in the game
+`away_team_hits` | number of hits by the visiting team in the game
+`away_team_runs` | number of runs by the visiting team in the game
+`date` | day, month, and year of the game
+`field_type` | field material the game was placed on (grass or turf)
+`game_type` | time of day the game was played during (day or night)
+`home_team` | MLB team that was the home team in the game
+`home_team_errors` | number of errors committed by the home team in the game
+`home_team_hits` | number of hits by the home team in the game
+`home_team_runs` | number of runs by the home team in the game
+`start_time` | time of day of the scheduled game first pitch
+`venue` | MLB stadium the game was played in
+`day_of_week` | day of the week of the game
+`temperature` | ambient temperature at the start of the game
+`wind_speed` | speed of wind at the start of the game
+`wind_direction` | direction of wind at the start of the game
+`sky` | sky conditions at the start of the game
+`total_runs` | combined runs scored between the home and visiting teams
+`game_hours_dec` | total length of the game in hours
+`season` | regular season or post season
+`home_team_win` | binary indicator of home team victory
+`home_team_loss` | binary indicator of home team loss
+`home_team_outcome` | Win or Loss
+
+## Methods
+
+### Preliminary Analysis
+
+We'll briefly revisit some our our initial thoughts regarding the relationships between the 2016 MLB season game data before engaging in a more robust analysis to build our predictive models. To reiterate, we are interested in what determines whether or not a visiting team is successful or not in winning as well as what leads to the scoring of runs or lack thereof in a game.
+
+To reiterate, the two primary questions of interest in this study were:
+
+1) What factors influence whether a road team is victorious in a sport where home field advantage is often vital?
+2) What factors contribute to whether how many runs a team scores in a given game? While unintentionally related to our research question, this could have interesting implications in something like sports betting, where it is common practice to place bets on the "over/under" or expected combined score of a game.
+
+We initially hypothesized that fan attendance and the day that a game was played on might have a serious impact on how successful road teams are in winning games. Since we believe that the idea of "home field advantage" might actually be present in baseball, we think that increased fan attendance could be related to an increased chance of home teams winning, which consequently indicates road teams have a decreased chance of winning games with high fan attendence. Since weekend games are generally the highest attended matchups, we believed that weekend games would have the lowest chance for a road team to win.
+
+Let's check out what fan attendance and road team winning percentages look like by each day of the week:
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+winpct_day <- baseball %>% group_by(day_of_week) %>% summarize(road.winpct = mean(home_team_loss), 
+                                                               min=mean(home_team_loss)-(2*sd(home_team_loss)/length(home_team_loss)),
+                                                               max=mean(home_team_loss)+(2*sd(home_team_loss)/length(home_team_loss)))
+winpct_day
+ggplot(winpct_day, aes(x=day_of_week, y=road.winpct)) + geom_col() + geom_errorbar(aes(ymin=min, ymax=max)) +
+  labs(x="Day of Week", y="Road Team Winning Percentage", title="Road Team Winning Percentage by Day")
+```
+
+The bar chart and output above indicates that for all of Major League Baseball, road team winning percentage is highest on Thursdays ($0.500$) and Tuesdays ($0.497$) and lowest on Wednesdays ($0.441$) and Saturdays ($0.442$). It's also interesting to note that there is no day of the week where the road team is more likely to win than the home team in this leaguewide measure of visiting team performance.
+
+```{r}
+attend_day <- baseball %>% group_by(day_of_week) %>% summarize(avg.attend = mean(attendance,na.rm=TRUE),
+min=mean(attendance,na.rm=TRUE)-(2*sd(attendance,na.rm=TRUE)/length(attendance)),                                                       max=mean(attendance,na.rm=TRUE)+(2*sd(attendance,na.rm=TRUE)/length(attendance)))
+attend_day
+ggplot(attend_day, aes(x=day_of_week, y=avg.attend)) + geom_col() + geom_errorbar(aes(ymin=min, ymax=max)) +
+  labs(x="Day of Week", y="Average Fan Attendance", title="Average Fan Attendance by Day")
+```
+
+When we take a look at how attendance, we can see that the days of the week with the highest attended games are Saturday ($34776$), Sunday ($32867$), and Friday ($31999$), with Tuesday ($27157$) and Wednesday ($27565$) being the days of the week with the lowest levels of fan attendance. When leaguewide attendance and road winning percentage are compared, there appears to be some sort of relationship between the factors, since Saturday is the day with the highest attendance levels and the second lowest road winning percentage, but obviously they are not perfectly related since Wednesday has been shown to have low attendance levels along with a low road winning percentage.
+
+Now, when we consider the total number of runs scored in a game, we were led to believe that analyzing the methods of how runners reach base would give a pretty clear indication as to how many runs are subsequently scored. In baseball, runners can reach base via a hit, walk, or error, so we initially believed that the total number of hits and errors in a game (we would also consider walks, but that statistic is not included in the dataset) might be related to how many runs are scored in a game.
+
+Let's take a brief look at how hits and errors are related to the overall score of a game:
+
+```{r,echo=FALSE}
+ggplot(baseball,aes(x=home_team_hits+away_team_hits,y=total_runs)) + geom_point(aes(colour = factor(game_type))) + labs(x="Total Hits", y="Total Runs Scored", title="Total Runs Scored vs. Total Hits") + geom_smooth(method='lm')
+
+ggplot(baseball,aes(x=home_team_errors+away_team_errors,y=total_runs)) + geom_point(aes(colour = factor(game_type))) + labs(x="Total Errors", y="Total Runs Scored", title="Total Runs Scored vs. Total Errors") + geom_smooth(method='lm')
+```
+
+Here, we can see a strong positive linear relationship between the total number of hits in a contest and the total number of runs scored. In addition, we also see a positive relationship, though not quite as strong, between total errors and total hits. This makes sense because, in order to score runs, a team must first get runners on base by means of a walk, error, or hit. The plots above are separated between day and night games to show that there is no obvious connection between the time of game and the number of runs scored in the game.
+
+### Prediction of Road Team Success & Home Field Advantage
+
+The preliminary visualizations provided above indicated that attendance and the day of week a game is played on may be serious contributors toward determining whether a home or road team wins a particular baseball game. One might suppose that a well-attended game would give the home team a serious advantage toward winning the game. We also suppose that the length of a game may play a role in who wins since home teams are often better rested, are not governed by travel schedules, and are comfortable in a familiar environment as a game stretches on longer and longer. Along with attendance, day of the week, and the length of a game, we also hypothesize that the time of day a game is played will influence whether the home or road team wins since night games on week nights are often more conducive to more fans showing up at the ballpark while day games are typically lighter in attendance.
+
+From the prior information given and the initial visualizations, we hypothesize that `home_team_win` (and in turn, the chance of a road team winning) can be predicted with `attendance`, `game_hours_dec`, `day_of_week`, and `game_type`. To begin the analysis of home and road team winning percentage predictions, we will build a model with the previously mentioned explanatory variables and further refine the model by adding or removing factors in order to tune the prediction model to its most accurate form where all parameters are indicated to be significant to the predictions made by the model.
+
+### Prediction of Total Runs Scored
+
+In order to score runs, a team must first get runners on base by means of hits or walks. Errors committed by the opposing team can also lead to additional runners and the advancement of runners. In addition, more hits, walks, and runs will accumulate baserunners and, in turn, runs. Furthermore, more base runners lead to more overall at bats, which leads to a longer overall game time. The ambient temperature and weather during a game is important in the total amount of runs scored because batted balls are more "lively" and travel farther in warmer temperatures. Also, sunnier conditions are likely to be warmer than overcast conditions and games played in domes obviously do not have the possibility of suffering from wind blowing in from the outfield to surpress homeruns and/or fly balls. Finally, turf fields are traditionally known to allow the ball to travel much faster through the field (and they are almost exclusively found in domed stadiums), so we believe that larger run totals may be strongly tied to whether or not a game is played on a turf field or not.
+
+Due to the prior observations that we noted, we hypothesize that the total number of runs scored in a game, `total_runs`, will be dependent on `home_team_hits`,`away_team_hits`, `home_team_errors`, `away_team_errors`, `temperature`, `game_hours_dec`, `sky`, and `field_type`. To begin our analysis we will build a model with the previously mentioned factors and subsequently refine the model by the addition or removal of other factors that prove to be significant to the prediction of the total number of runs scored in a game.
+
+## Analysis
+
+### Projection of Road Team Victories
+
+```{r,eval=FALSE}
+model_win <- glm(home_team_win~attendance+game_hours_dec+day_of_week+game_type, family=binomial, data=baseball)
+summary(model_win)
+```
+
+Based on this analysis, only the intercept, attendance, and game length variables are significant at the $\alpha = 0.05$ level, with p-values $P = 1.67 \times 10^{-8}, P = 0.0109$, and $P = 1.32 \times 10^{-13}$, respectively. The day of the week and game type don't seem to have any effect whatsoever. We will now look at a simpler model, containing only the significant variables from the above.
+
+```{r, echo=FALSE}
+model_win_simple <- glm(home_team_win~attendance+game_hours_dec, family=binomial, data=baseball)
+summary(model_win_simple)
+```
+
+All three variables are comfortably significant at the $\alpha = 0.05$ level in this new model, though with slightly different p-values from before. By AIC, this simple model (AIC = 3344.6) comfortably surpasses the original model (AIC = 3353), indicating that it is a better fit. We now turn our attention to the residual deviance in the simple model, which has a value 3338.6 on 2457 degrees of freedom. This is potential evidence of overdispersion, which we will endeavor to alleviate using a quasibinomial fit, shown below.
+
+```{r, echo=FALSE}
+model_quasi <- glm(home_team_win~attendance+game_hours_dec, family=quasibinomial, data=baseball)
+summary(model_quasi)
+```
+
+The quasibinomial fit did not in any way alleviate the above concerns, so we will return to the binomial fit. Our next consideration is whether the day of the week or game type variables might constitute random effects that are inflating the variance of our given model. Below, we consider a mixed model in comparison to our simplified binomial model from above. We will also normalize the variables so that the different scales of the variables `attendance` and `game_hours_dec` do not affect our fit.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(lme4)
+library(psycho)
+baseball2 <- standardize(baseball)
+model_win_random <- glmer(home_team_win~attendance+game_hours_dec+(1|day_of_week)+(1|game_type), family=binomial, data=baseball2)
+summary(model_win_random)
+```
+
+This output shows two important observations. First, adding the `day_of_week` and `game_type` random effects did not account _any_ of the variation of the model. Second, the AIC of this model is 3348.6. Recall that the simple binomial model had an AIC of 3344.6, indicating that it is a slightly better fit than the more complex model. Given the improved interpretability and fit of the simpler model, we will use it for the rest of our analysis.
+
+First, though its AIC is good, we need to verify that it is actually a good fit. Consider the result of the drop-in deviance test below:
+
+```{r, echo=FALSE}
+1 - pchisq(model_win_simple$deviance, model_win_simple$df.residual)
+```
+
+With the p-value shown ($P = 0$), we can conclude that even our best model does not fit accurately, as the residuals of this model do not come close to following a $\chi^2$ distribution. We also consider the mean-square error of the predictions, shown below.
+
+Because this simplified binomial model was the best we constructed given our explanatory variables and it still does not fit, we must conclude that home team vs road team performance cannot be accurately assessed with the variables we have here.
+
+### Projection of Game Run Total
+
+```{r, echo=FALSE}
+ggplot(baseball,aes(total_runs)) + geom_histogram(binwidth = 1) + labs(x="Total Runs", y="Count", title="Histogram of Total Runs Scored")
+baseball %>% summarize(mean=mean(total_runs), var=sd(total_runs)^2)
+```
+
+The visualization above displays a histogram of the total number of runs scored in MLB games. This figure helps to get an idea of how the number of runs scored in a game during the 2016 MLB season are distributed. Intuitively, the number of runs scored in a game is a "count" observation, where observed quantities occur in whole number values. From this, we infer that the poisson distribution is an appropriate response distribution to model the total number of runs scored in a MLB game. However, in the data from the 2016 MLB season, the average number of runs scored in a game is about 9, but the variance is about 20. Due to the variance of the data being significantly larger than the average number of runs scored per game, we will use a quasipoisson response distribution in order to account for the additional variance in the data.
+
+
+```{r,echo=FALSE}
+model_runs <- glm(total_runs~home_team_hits+away_team_hits+home_team_errors+away_team_errors+game_hours_dec, family=quasipoisson, data=baseball)
+summary(model_runs)
+```
+
+We previously indicated that we would begin our projections of the total number of runs scored in a game by building a model with the variables `home_team_hits`,`away_team_hits`, `home_team_errors`, `away_team_errors`, `temperature`, `game_hours_dec`, `sky`, and `field_type` to make predictions on `total_runs`. We constructed a linear model with a quasipoisson response distrution with the initial variables that were mentioned. The variables `temperature`, `sky`, and `field_type` were subsequently removed from the model due to their insignificance in effectively predicting run totals. The final model with all significant coefficients included: `home_team_hits` ($P < 2\times 10^{-16}$), `away_team_hits` ($P < 2\times 10^{-16}$), `home_team_errors` ($P = 9.06\times 10^{-12}$), `away_team_errors` ($P = 5.28\times 10^{-10}$), and `game_hours_dec` ($P = 0.00807$). In this final model, the residual deviance of $2234.8$ is relatively similar to the $2457$ degrees of freedom, so we are comfortable with how the quasipoisson response distribution accounted for the additional variation in the data.
+
+The explanatory variable coefficients provided above compose the $\eta$ value for the model that can be exponentiated to understand the true effect on the data outcome that each explanatory variable has. We'll exponentiate the coefficients of the final model and interpret what they indicate.
+
+```{r, echo=FALSE}
+exp(model_runs$coefficients)
+```
+
+Referencing the coefficients above, a one-unit increase in the number of hits by the home team has a 1.075109-fold multiplicative increase on the total number of runs scored. A unit increase in hits by the away team has a 1.069781-fold multiplicative increase on total runs. A unit increase in the number of errors by the home team has a 1.053008-fold multiplicative increase on total runs. The same unit increase in errors by the away team has a 1.048608-fold multiplicative increase on total runs scored. Finally, a one unit increase (one hour) in total game time has a 0.9599338-fold decrease on the predicted number of runs scored.
+
+These coefficients indicate that more hits and more errors lead to greater run totals in a baseball game, but longer games actually decrease the expected run total. This may be in part to the time added to games from mound visits or pitching changes where teams attempt to insert relief pitchers that provide the best matchups against opposing hitters. This often extends the game while limiting the number of baserunners due to the defensive advantage brought on by a favorable pitcher. The effects of hits and runs, but the effect of game time is interesting since we were unsure of whether a higher scoring game might be related to a longer time of game. The coefficients show that hits by both home and away teams are the most significant explanatory variables, which makes sense because hits are one of the primary methods of putting runners on base to generate runs.
+
+```{r, echo=FALSE}
+plot(model_runs$fitted.values,baseball$total_runs, xlab="Predicted runs",ylab="Actual runs",main="Actual vs. Fitted Values for Total Runs Scored", col='blue')
+abline(a=0,b=1)
+
+par(mfrow = c(2, 2))
+plot(model_runs)
+```
+
+The output above includes a plot of predicted (fitted) values for total runs scored compared to the actual values of total runs in a game along with the residual plots from the quasipoisson model. The actual vs. fitted plot shows that the model made fairly good predictions up to a total run amount of about 20. The actual and fitted values conform relatively well to the 1-1 line although there is a pretty significant amount of variation in the predicted values at individual observed run totals. We are not overly concerned about the model missing on predictions at run totals in the double digits reaching up to around 25 total runs since we previously showed that the average number of runs scored in a game is about 9 and most games have run totals beneath 10. On occasion, "blowouts" occur, where a team scores significantly more runs that they normally would given typical competitive behaviors in a game so we are mostly impressed with the model performance at low run totals.
+
+The residual plots from the quasipoisson model are not overly concerning either. The plot of residuals versus fitted values shows that the model overpredicts run totals at very low and very high run totals, but it is fairly accurate at moderate run totals. This also shows that there is generally constant variance among the residuals. In additon, the Q-Q plot shows that the residuals are normally distributed and they show little deviation from the 1-1 quantile line. Overall, the residual plots appear to indicate that the model is a fairly good performer in making run total predictions.
+
+To evaluate any concerns with the prediction model for total runs, we can perform a drop-in deviance test to check the discrepancy between residual deviance and degrees of freedom, calculate the mean squared error of the model to ensure the model is making accurate predictions when compared to actual observations, and check the variance inflation factor of the coefficients in the model to investigate if any of the factors in the model are highly correlated with each other.
+
+
+```{r,echo=FALSE}
+1 - pchisq(model_runs$deviance, model_runs$df.residual)
+```
+
+A drop-in deviance test on the total run prediction model returned a p-value of $p=0.999444$. This high p-value is a clear indication that the model is a good fit and that the quasipoisson response distribution accounted for any overdispersion that was previously present in the model.
+
+```{r, echo=FALSE}
+mse <- mean((model_runs$residuals)^2)
+mse
+mae <- mean(abs(model_runs$residuals))
+mae
+```
+
+Furthermore, the mean squared error of the model is 0.1114862. This value is quite small, so we are not concerned about the magnitude of the residuals between the actual and predicted values from the model.
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+library(car)
+vif(model_runs)
+```
+
+Finally, the variance inflation factor of each of the coefficients in the model turn out to be about 1 so we are not concerned with any multicollinearity with the explanatory variables used in the model. This makes sense in general as well because we would not expect hits, errors, length of game to be significantly correlated to begin with.
+
+## Conclusion & Discussion
+
+In these experiments, we sought to answer two questions: what factors contribute to whether a road team wins a baseball game, and what factors contribute to the number of runs scored in a baseball game. We successfully built a model to answer the latter question, but with the data we have, the former has eluded us. 
+
+In the case of the road team success, we considered game attendance because the number of fans present should contribute to the strength of a home field advantage. We considered the length of a game, expecting a longer game to favor the home team (which we figured would be less likely to be worn down from travel exhaustion). We also chose to include day of the week and time of day in our initial model, figuring they might have some relation to fan attendance or player exhaustion. These two variables were quickly eliminated from our model, failing to register as statistically significant predictors. By AIC, the best model of the many we tried was the simplest, a simple binomial model using the `attendance` and `game_hours_dec` (length of game) variables. However, this model failed the drop-in deviance test rather badly, indicating its poor fit for our data. We were not able to find a model that fit better. It is possible that including the `home_team` and `road_team` variables would improve the fit of our model, but the express purpose of this model was to suss out what helped a road team win regardless of its quality. Including the teams involved in the model allows the model to predict victory based on the quality of the teams involved, which will naturally involve more success. Unfortunately, it does not look like road team success can be assessed using the variables we have available.
+
+We were able to successfully fit a model to predict the total runs scored in a game. All of the variables we considered in our preliminary analysis - hits and errors for the home and away teams, and game length - were statistically significant in our model at the $\alpha = 0.05$ level. Our initial Poisson model was overdispered, but this overdispersion was easily alleviated by fitting a quasipoisson model. That model predicted with stunning accuracy, with a mean-squared error of 0.11, and a mean absolute error of 0.26. The model showed that every hit and error by either the home or away team increased the predicted number of runs scored. Hits were slightly more impactful, causing a 7.5% increase in predicted runs if achieved by the home team and a 7.0% increase in predicted runs if achieved by the road team. An error by the home team caused a 5.3% increase in the expected number of runs scored, and an error by the road team caused a 4.9% increase in the expected number of runs scored. This makes sense - hits and errors put runners on base, which is a necessary prerequisite for scoring runs by any method other than the home run. Meanwhile, a one-hour increase in the length of the game caused a 4.0% decrease in the predicted number of runs scored, which surprised us. The model predicts very well near the mean number of runs scored in a game (around 9 runs), but is limited for very high-scoring or very low-scoring games. These games represent outliers, not true reflections of the quality of the teams involved. This model could be very useful for over-under bets now that sports gambling has been legalized. 

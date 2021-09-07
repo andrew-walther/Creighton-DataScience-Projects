@@ -9,3 +9,5 @@ Courses:
 -MTH 366: Machine Learning (Spring 2020)\
 -MTH 561: Mathematical Statistics I (Fall 2018)\
 -MTH 562: Mathematical Statistics II (Spring 2019)\
+
+To view html pages that don't render properly, please paste the file link in the following site: https://htmlpreview.github.io

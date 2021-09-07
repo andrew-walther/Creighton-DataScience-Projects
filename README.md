@@ -1,5 +1,5 @@
 # Creighton-DataScience-Projects
-A collection of project scripts and reports from statistics &amp; data science projects during undergraduate studies at Creighton University.
+A collection of datasets, project scripts, and reports from statistics &amp; data science projects from my undergraduate studies at Creighton University.
 
 Courses:
 
